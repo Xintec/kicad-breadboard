@@ -278,6 +278,12 @@ class BreadboardWindow(wx.Frame):
         self._validation_active: bool = False      # True once Validate has been run and not yet cleared
         self._sim_pane: Optional['SimPane'] = None
         self._waveform_frame: Optional['WaveformFrame'] = None
+        # The session file this window follows (see _check_session_on_disk):
+        # its mtime and the board state when last loaded or saved.
+        self._session_path: Optional[str] = None
+        self._session_mtime: Optional[int] = None
+        self._session_clean_snap: Optional[dict] = None
+        self._session_checking: bool = False
 
         self._build_ui()
         self._init_canvas_from_prefs()
@@ -287,6 +293,10 @@ class BreadboardWindow(wx.Frame):
 
         if project_path:
             self._auto_load_netlist(project_path)
+
+        self._session_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, lambda _e: self._check_session_on_disk(), self._session_timer)
+        self._session_timer.Start(1000)
 
         self.Centre()
         self.Show()
@@ -1171,6 +1181,8 @@ class BreadboardWindow(wx.Frame):
     def _on_save(self, _evt) -> None:
         default_dir = self._project_path or ''
         default_file = 'breadboard.kicad_bbrd'
+        if self._session_path:
+            default_dir, default_file = os.path.split(self._session_path)
         with wx.FileDialog(
             self,
             message='Save session',
@@ -1182,13 +1194,99 @@ class BreadboardWindow(wx.Frame):
             if dlg.ShowModal() != wx.ID_OK:
                 return
             path = dlg.GetPath()
+        self._save_session_to(path)
+
+    def _save_session_to(self, path: str) -> bool:
+        """Write the session; returns False if not written. Asks first when the
+        file this window follows changed on disk since it was loaded or saved."""
+        if (self._same_file(path, self._session_path) and os.path.isfile(path)
+                and os.stat(path).st_mtime_ns != self._session_mtime
+                and not self._confirm_overwrite(path)):
+            return False
         try:
             ann_json = [self.canvas._ann_to_json(a) for a in self.canvas._annotations]
             save_session(self.board, self._netlist_path, path, annotations=ann_json)
-            self.SetStatusText(f'Session saved to {path}', 0)
         except Exception as exc:
             wx.MessageBox(f'Failed to save session:\n{exc}', 'Save session',
                           wx.OK | wx.ICON_ERROR, self)
+            return False
+        self._remember_session(path)
+        self.SetStatusText(f'Session saved to {path}', 0)
+        return True
+
+    # ------------------------------------------------------------------
+    # Following the session file on disk
+    # ------------------------------------------------------------------
+    # Another program (the command-line tool, cli.py) may rewrite the
+    # session while this window has it open. A 1 s timer notices: with no
+    # local edits the board simply follows the file; with local edits the
+    # user is asked. Either way the reload is one undoable step.
+
+    @staticmethod
+    def _same_file(a: Optional[str], b: Optional[str]) -> bool:
+        return bool(a and b) and (os.path.normcase(os.path.abspath(a))
+                                  == os.path.normcase(os.path.abspath(b)))
+
+    def _remember_session(self, path: str) -> None:
+        self._session_path = path
+        try:
+            self._session_mtime = os.stat(path).st_mtime_ns
+        except OSError:
+            self._session_mtime = None
+        self._session_clean_snap = self.canvas._board_snapshot()
+
+    def _ask_reload(self, path: str) -> bool:
+        return wx.MessageBox(
+            f'{os.path.basename(path)} was changed by another program.\n\n'
+            'Reload it? Your unsaved changes on the board will be replaced '
+            '(Ctrl+Z brings them back).',
+            'Session changed on disk', wx.YES_NO | wx.ICON_QUESTION, self) == wx.YES
+
+    def _confirm_overwrite(self, path: str) -> bool:
+        return wx.MessageBox(
+            f'{os.path.basename(path)} was changed by another program since it was '
+            'loaded.\n\nOverwrite those changes with the board as shown?',
+            'Session changed on disk', wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,
+            self) == wx.YES
+
+    def _check_session_on_disk(self) -> None:
+        path = self._session_path
+        if not path or self._session_checking:
+            return
+        try:
+            mtime = os.stat(path).st_mtime_ns
+        except OSError:
+            return
+        if mtime == self._session_mtime or self.canvas.is_mid_action():
+            return          # unchanged, or retry on a later tick
+        try:
+            result = load_session(path)
+        except Exception:
+            self.SetStatusText(f'{os.path.basename(path)} changed on disk but cannot be '
+                               'read yet, retrying', 0)
+            return          # e.g. caught mid-write: retry on a later tick
+        self._session_checking = True
+        try:
+            dirty = self.canvas._board_snapshot() != self._session_clean_snap
+            if dirty and not self._ask_reload(path):
+                self._session_mtime = mtime     # keep mine; do not ask again for this change
+                return
+            if result.get('board_layout', 'full') != self.board.layout:
+                self._on_load(path=path)        # different board: full load (not undoable)
+                return
+            self.canvas.reload_from_session(result['board'], result.get('annotations', []))
+            self._refresh_terminal_choices()
+            self._refresh_probe_choices()
+            self._refresh_probe_buttons()
+            self.tray.refresh_placed()
+            self._validation_active = False
+            self.canvas.clear_highlights()
+            self._session_mtime = mtime
+            self._session_clean_snap = self.canvas._board_snapshot()
+            self.SetStatusText(f'Reloaded {os.path.basename(path)}: changed on disk '
+                               '(Ctrl+Z to undo)', 0)
+        finally:
+            self._session_checking = False
 
     def _on_load(self, _evt=None, *, path: str = '') -> None:
         if not path:
@@ -1248,6 +1346,7 @@ class BreadboardWindow(wx.Frame):
 
         self.canvas.clear_history()
         self.canvas.Refresh()
+        self._remember_session(path)
         self.SetStatusText(f'Session loaded from {path}', 0)
 
     def _on_prefs(self, _evt) -> None:

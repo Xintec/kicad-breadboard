@@ -1543,10 +1543,11 @@ class BreadboardCanvas(wx.Panel):
                                text_color=d.get('text_color', '#222222'))
         return None
 
-    def _board_snapshot(self) -> dict:
-        """Capture the full mutable board state as a JSON-serialisable dict."""
+    def _board_snapshot(self, board: Optional[Breadboard] = None) -> dict:
+        """Capture the full mutable board state as a JSON-serialisable dict
+        (of this canvas's board, or of `board`, e.g. one re-read from disk)."""
         from .model.session import _hole_to_json
-        b = self.board
+        b = board if board is not None else self.board
         return {
             'terminals': {n: net for n in TERMINAL_NAMES
                           if (net := b.get_terminal_net(n))},
@@ -1615,6 +1616,21 @@ class BreadboardCanvas(wx.Panel):
                               if (a := self._ann_from_json(d)) is not None]
 
         self._populate_module_pins()
+
+    def reload_from_session(self, board: Breadboard, annotations: list) -> None:
+        """Take over the state of a session re-read from disk (same layout)
+        as one undoable step, so Ctrl+Z brings back what was on screen."""
+        self.push_undo()
+        snap = self._board_snapshot(board)
+        snap['annotations'] = annotations
+        self._restore_snapshot(snap)
+        self._post_restore()
+
+    def is_mid_action(self) -> bool:
+        """True while the user is placing, wiring or dragging something."""
+        return bool(self._ghost is not None or self._wire_start is not None
+                    or self._drag_comp is not None or self._pin_drag_ref is not None
+                    or self._wire_end_drag_wire is not None or self.HasCapture())
 
     def push_undo(self) -> None:
         """Save current board state to undo stack and clear the redo stack."""
