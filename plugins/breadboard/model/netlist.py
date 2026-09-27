@@ -240,6 +240,20 @@ def parse(path: str | Path) -> Netlist:
         if _ref in components:
             components[_ref].pin_count = len(_pins)
 
+    # The symbol's pin names, as 'Pin.Functions' in Sim.Pins' "1=G 2=D 3=S"
+    # form: guess_type_id falls back on it for a transistor's pin order when
+    # the symbol carries no Sim.Pins. KiCad suffixes duplicate names (G_1).
+    _functions: Dict[str, Dict[int, str]] = {}
+    for net in nets:
+        for pin in net.pins:
+            fn = re.sub(r'_\d+$', '', pin.pinfunction)
+            if pin.pin and fn and fn != '~' and ' ' not in fn:
+                _functions.setdefault(pin.ref, {})[pin.pin] = fn
+    for _ref, fns in _functions.items():
+        if _ref in components:
+            components[_ref].properties.setdefault(
+                'Pin.Functions', ' '.join(f'{p}={f}' for p, f in sorted(fns.items())))
+
     return Netlist(components=components, nets=nets)
 
 

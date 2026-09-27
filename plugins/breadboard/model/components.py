@@ -367,7 +367,44 @@ PMOS = ComponentDef(
 # The first entry is the default and must match the ComponentDef above.
 # BS170 has a single standard pinout and is omitted.
 # ---------------------------------------------------------------------------
-TO92_PINOUT_VARIANTS: Dict[str, List[Tuple[str, Dict[int, PinOffset]]]] = {
+def _variants_by_function(comp_def: 'ComponentDef',
+                          variants: List[Tuple[str, Dict[int, PinOffset]]]
+                          ) -> List[Tuple[str, Dict[int, PinOffset]]]:
+    """The same named variants (e.g. 'G-D-S': legs left to right) laid out
+    for comp_def's own pin numbering: each pin goes where its function
+    (comp_def.pin_names) sits in the variant's name."""
+    return [(name, {pin: PinOffset(name.split('-').index(func))
+                    for pin, func in comp_def.pin_names.items()})
+            for name, _ in variants]
+
+
+class _PinoutVariants(dict):
+    """type_id → physical pinout variants. A pin-order type (NMOS_GDS,
+    PNP_ECB, …) gets its base type's variants rebuilt for its own pin
+    numbering on first lookup, so its physical leg order stays selectable."""
+
+    def __missing__(self, type_id: str):
+        base, _, order = type_id.rpartition('_')
+        if not dict.__contains__(self, base) or base not in _PIN_ORDER_CANONICAL:
+            raise KeyError(type_id)
+        comp_def = ALL_DEFS.get(type_id)
+        if comp_def is None:
+            raise KeyError(type_id)
+        v = _variants_by_function(comp_def, dict.__getitem__(self, base))
+        self[type_id] = v
+        return v
+
+    def get(self, type_id, default=None):
+        try:
+            return self[type_id]
+        except KeyError:
+            return default
+
+    def __contains__(self, type_id) -> bool:
+        return self.get(type_id) is not None
+
+
+TO92_PINOUT_VARIANTS: Dict[str, List[Tuple[str, Dict[int, PinOffset]]]] = _PinoutVariants({
     'NPN': [
         ('C-B-E', {1: PinOffset(0), 2: PinOffset(1), 3: PinOffset(2)}),  # BC547, BC337 …
         ('E-B-C', {3: PinOffset(0), 2: PinOffset(1), 1: PinOffset(2)}),  # 2N3904, 2N2222 …
@@ -401,7 +438,7 @@ TO92_PINOUT_VARIANTS: Dict[str, List[Tuple[str, Dict[int, PinOffset]]]] = {
         ('S-G-D', {2: PinOffset(0), 1: PinOffset(1), 3: PinOffset(2)}),
         ('D-G-S', {3: PinOffset(0), 1: PinOffset(1), 2: PinOffset(2)}),
     ],
-}
+})
 
 # ---------------------------------------------------------------------------
 # DIP op-amps — anchor always in row 'e', bottom side in row 'f'
@@ -1044,7 +1081,10 @@ def guess_type_id(ref: str, value: str, symbol: str, lib: str = '',
     l = lib.upper()
     d = description.upper()
     sim_device = (properties or {}).get('Sim.Device', '').upper()
-    sim_pins = (properties or {}).get('Sim.Pins', '')
+    # Pin order: the symbol's Sim.Pins, else its pin names from the netlist
+    # (netlist.parse's 'Pin.Functions'), e.g. an IRLZ44N's G_1 D_2 S_3.
+    sim_pins = ((properties or {}).get('Sim.Pins', '')
+                or (properties or {}).get('Pin.Functions', ''))
 
     # The footprint, when it names a part we model, is the physical truth:
     # it beats every symbol/value heuristic below.
