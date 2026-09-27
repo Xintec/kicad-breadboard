@@ -458,7 +458,7 @@ def _element_line(ref: str, type_id: str,
 
     pins maps pin_number → SPICE node name.
     """
-    tid = type_id
+    tid = type_id.split(':')[0]     # the package (e.g. ':TO220') does not change the model
 
     def p(n: int) -> str:
         return pins.get(n, 'NC')

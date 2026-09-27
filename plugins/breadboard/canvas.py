@@ -4350,6 +4350,10 @@ class BreadboardCanvas(wx.Panel):
                 self._draw_single_row_part(dc, comp_def, placed, ref, x_min, x_max,
                                            y_min, y_max, pad, selected)
                 return
+            if comp_def.package == 'TO220':
+                self._draw_to220(dc, comp_def, placed, ref, x_min, x_max, y_min, y_max,
+                                 pad, selected)
+                return
             if placed.type_id in _SLIDER_TYPES:
                 # See _draw_slider_switch / TO-92's comment above: axis and
                 # side are derived from `flipped` + the real resolved pixel
@@ -4531,6 +4535,50 @@ class BreadboardCanvas(wx.Panel):
             label_x = (x_min + x_max) // 2
             label_y = (y_min + y_max) // 2 - 5
             dc.DrawText(ref, label_x - dc.GetTextExtent(ref).Width // 2, label_y)
+
+    def _draw_to220(self, dc: wx.DC, comp_def: ComponentDef, placed: PlacedComponent,
+                    ref: str, x_min: int, x_max: int, y_min: int, y_max: int,
+                    pad: int, selected: bool) -> None:
+        """Vertical TO-220 seen from above: a black body over its pins and the
+        holes it covers, the metal tab along the side it covers (behind the
+        pin line), the pins as gold squares and the pin names beside them."""
+        pad = pad or PITCH // 2 - 1
+        body = wx.Rect(x_min - pad, y_min - pad, x_max - x_min + 2 * pad, y_max - y_min + 2 * pad)
+        dc.SetBrush(wx.Brush('#1e1e1e'))
+        dc.SetPen(wx.Pen('#00ccff' if selected else '#333333', 2 if selected else 1))
+        dc.DrawRectangle(body)
+        pins = [xy for xy in (self.layout.hole_xy(h) for h in placed.pin_holes.values()) if xy]
+        px = [x for x, _ in pins]
+        py = [y for _, y in pins]
+        tab = PITCH // 2
+        if max(px) - min(px) >= max(py) - min(py):          # pins along x: tab above or below
+            y_pins = sum(py) // len(py)
+            top = body.GetTop() if (y_pins - body.GetTop()) > (body.GetBottom() - y_pins) \
+                else body.GetBottom() - tab
+            tab_rect = wx.Rect(body.GetLeft(), top, body.GetWidth(), tab)
+        else:                                                # pins along y: tab left or right
+            x_pins = sum(px) // len(px)
+            left = body.GetLeft() if (x_pins - body.GetLeft()) > (body.GetRight() - x_pins) \
+                else body.GetRight() - tab
+            tab_rect = wx.Rect(left, body.GetTop(), tab, body.GetHeight())
+        dc.SetBrush(wx.Brush('#9e9e9e'))
+        dc.SetPen(wx.Pen('#6e6e6e', 1))
+        dc.DrawRectangle(tab_rect)
+        dc.SetBrush(wx.Brush('#c9a227'))
+        dc.SetPen(wx.Pen('#7a6010', 1))
+        dc.SetFont(wx.Font(6, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        dc.SetTextForeground('#ffffff')
+        for pin, hole in placed.pin_holes.items():
+            xy = self.layout.hole_xy(hole)
+            if xy:
+                dc.DrawRectangle(xy[0] - 2, xy[1] - 2, 5, 5)
+                name = comp_def.pin_names.get(pin, str(pin))
+                tw, th = dc.GetTextExtent(name)
+                dc.DrawText(name, xy[0] - tw // 2, xy[1] + 3)
+        dc.SetFont(wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        dc.SetTextForeground('#222222')
+        tw, th = dc.GetTextExtent(ref)
+        dc.DrawText(ref, (x_min + x_max) // 2 - tw // 2, body.GetTop() - th - 1)
 
     def _draw_single_row_part(self, dc: wx.DC, comp_def: ComponentDef,
                               placed: PlacedComponent, ref: str,

@@ -18,7 +18,7 @@ Pin numbering follows the standard KiCad symbol convention for each part.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional, Tuple
 
 from .breadboard import (
@@ -114,6 +114,8 @@ class ComponentDef:
     # A single row of pins at fixed pitch (header, terminal block, header
     # module): placed from an anchor and turned in 90° steps even with 2 pins.
     single_row: bool = False
+    # Physical package when it differs from the default drawing ('TO220').
+    package: str = ''
 
     @property
     def pin_count(self) -> int:
@@ -400,6 +402,11 @@ class _PinoutVariants(dict):
     numbering on first lookup, so its physical leg order stays selectable."""
 
     def __missing__(self, type_id: str):
+        electrical, sep, _package = type_id.partition(':')
+        if sep:             # same legs whatever the package (NMOS_GDS:TO220)
+            v = self[electrical]
+            self[type_id] = v
+            return v
         base, _, order = type_id.rpartition('_')
         if not dict.__contains__(self, base) or base not in _PIN_ORDER_CANONICAL:
             raise KeyError(type_id)
@@ -974,7 +981,20 @@ class _DefRegistry(dict):
         return self.get(type_id) is not None
 
 
+# Vertical TO-220 (KiCad TO-220-3_Vertical outline): the body reaches 3.4 mm
+# behind the pin line (the tab: the next row) and 1.5 mm in front (nothing),
+# and 2.71 mm past each end pin (the next column).
+TO220_BODY = (1, 1, 1, 0)
+
+
 def _make_from_name(type_id: str) -> Optional[ComponentDef]:
+    base, sep, package = type_id.partition(':')
+    if sep:
+        base_def = ALL_DEFS.get(base) if package == 'TO220' else None
+        if base_def is None or base_def.pin_count != 3 or not base_def.quad_rotates:
+            return None
+        return replace(base_def, type_id=type_id, display_name=f'{base_def.display_name} (TO-220)',
+                       body=TO220_BODY, package='TO220')
     m = re.fullmatch(r'(DIP|SIP|XY308_)(\d+)', type_id)
     if m:
         n = int(m.group(2))
@@ -1077,6 +1097,22 @@ def _make_pin_order_def(base_type: str, order: Tuple[str, ...]) -> ComponentDef:
 
 
 def guess_type_id(ref: str, value: str, symbol: str, lib: str = '',
+                  description: str = '', pin_count: int = 0,
+                  properties: Optional[Dict[str, str]] = None) -> Optional[str]:
+    """The component's type_id (see _guess_electrical_type_id), plus its
+    package when that changes the body on the board: a transistor on a
+    vertical TO-220 footprint is '<type>:TO220' (e.g. 'NMOS_GDS:TO220')."""
+    type_id = _guess_electrical_type_id(ref, value, symbol, lib, description, pin_count,
+                                        properties)
+    footprint = (properties or {}).get('Footprint', '')
+    if type_id and 'TO-220' in footprint and 'Vertical' in footprint:
+        packaged = f'{type_id}:TO220'
+        if ALL_DEFS.get(packaged) is not None:
+            return packaged
+    return type_id
+
+
+def _guess_electrical_type_id(ref: str, value: str, symbol: str, lib: str = '',
                   description: str = '', pin_count: int = 0,
                   properties: Optional[Dict[str, str]] = None) -> Optional[str]:
     """
