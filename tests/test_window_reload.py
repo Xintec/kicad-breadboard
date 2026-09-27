@@ -54,6 +54,16 @@ class WindowReloadTest(unittest.TestCase):
         st = os.stat(self.path)   # make sure the mtime moves even on coarse clocks
         os.utime(self.path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))
 
+    def test_a_rail_split_change_on_disk_is_followed(self):
+        s = Session.open(self.path, prefs=Preferences())
+        s.board.set_rail_split(not self.win.board.rail_split)
+        s.save()
+        st = os.stat(self.path)
+        os.utime(self.path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))
+        self.win._check_session_on_disk()
+        self.assertEqual(self.win.board.rail_split, s.board.rail_split)
+        self.assertEqual(self.win.canvas.layout.rail_split, s.board.rail_split)
+
     def test_image_export_leaves_out_the_screen_legend(self):
         # the legend is placed by window size and drawn semi-transparent: in an
         # exported bitmap it came out as an empty white box in a corner

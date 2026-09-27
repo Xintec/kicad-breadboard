@@ -1277,7 +1277,9 @@ class BreadboardWindow(wx.Frame):
             if dirty and not self._ask_reload(path):
                 self._session_mtime = mtime     # keep mine; do not ask again for this change
                 return
-            if result.get('board_layout', 'full') != self.board.layout:
+            split = result.get('rail_split')
+            if (result.get('board_layout', 'full') != self.board.layout
+                    or (split is not None and split != self.board.rail_split)):
                 self._on_load(path=path)        # different board: full load (not undoable)
                 return
             self.canvas.reload_from_session(result['board'], result.get('annotations', []))
@@ -1329,6 +1331,11 @@ class BreadboardWindow(wx.Frame):
         saved_layout = result.get('board_layout', 'full')
         if saved_layout != self.prefs.board_layout:
             self.prefs.board_layout = saved_layout
+        # Split rails too: the session's value (a property of the physical
+        # board), else the preference — the board used to come back split.
+        if result.get('rail_split') is not None:
+            self.prefs.rail_split = result['rail_split']
+        self.board.set_rail_split(self.prefs.rail_split)
         self.canvas.layout = CanvasLayout(saved_layout, self.prefs.binding_post_side,
                                           self.prefs.show_branding, self.prefs.rail_split,
                                           self.prefs.num_terminals)

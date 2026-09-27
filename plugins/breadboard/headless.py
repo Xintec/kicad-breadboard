@@ -88,7 +88,7 @@ def _as_hole(h) -> Hole:
 
 class Session:
     def __init__(self, path: str, board: Breadboard, netlist_path: str,
-                 annotations: list, prefs: Preferences):
+                 annotations: list, prefs: Preferences, rail_split: Optional[bool] = None):
         self.path = path
         self.board = board
         self.netlist_path = netlist_path
@@ -98,21 +98,22 @@ class Session:
             raise CliError(f'Netlist not found: {netlist_path}. Export it from the '
                            f'schematic first (cli.py netlist).')
         self.netlist: Netlist = parse_netlist(netlist_path)
-        # The canvas draws (and a person builds) the rails as the preferences
-        # say; load_session() always rebuilds the board with rails split.
-        self.board.set_rail_split(prefs.rail_split)
+        # Split rails are a property of the physical board: the session's
+        # value, else (an older session) the preferences, as the window does.
+        self.board.set_rail_split(prefs.rail_split if rail_split is None else rail_split)
         self.terminals = rules.active_terminals(board.layout, prefs.binding_post_side,
                                                 prefs.num_terminals)
 
     @classmethod
     def create(cls, path: str, netlist_path: str, layout: Optional[str] = None,
-               prefs: Optional[Preferences] = None) -> 'Session':
+               prefs: Optional[Preferences] = None,
+               rail_split: Optional[bool] = None) -> 'Session':
         prefs = prefs or load_prefs()
         layout = layout or prefs.board_layout
         if layout not in ('mini', 'half', 'full', 'double', 'triple', 'double_rails', 'sunny-11'):
             raise CliError(f'Unknown layout {layout!r}.')
         board = Breadboard(layout=layout, rail_split=prefs.rail_split)
-        return cls(path, board, os.path.abspath(netlist_path), [], prefs)
+        return cls(path, board, os.path.abspath(netlist_path), [], prefs, rail_split)
 
     @classmethod
     def open(cls, path: str, netlist: Optional[str] = None,
@@ -129,7 +130,7 @@ class Session:
         if not net:
             raise CliError('The session names no netlist; pass one with --netlist.')
         return cls(path, data['board'], os.path.abspath(net),
-                   data.get('annotations', []), prefs or load_prefs())
+                   data.get('annotations', []), prefs or load_prefs(), data.get('rail_split'))
 
     def save(self) -> None:
         # The netlist is named relative to the session, so a session kept in
@@ -342,6 +343,7 @@ class Session:
             'session': os.path.abspath(self.path),
             'netlist': self.netlist_path,
             'layout': self.board.layout,
+            'rail_split': self.board.rail_split,
             'prefs': {'rail_split': self.prefs.rail_split,
                       'binding_post_side': self.prefs.binding_post_side,
                       'num_terminals': self.prefs.num_terminals},

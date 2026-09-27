@@ -6,7 +6,7 @@ Run with KiCad's Python (it has wx, which only `render` needs):
     python cli.py --session board.kicad_bbrd <command> [args]
 
 Commands (holes as in headless.py: e10, e10@1, top_plus:3, GND, MCU1.5):
-    new --netlist X.net [--layout full]   create the session file
+    new --netlist X.net [--layout full] [--[no-]rail-split]   create the session file
     netlist --schematic X.kicad_sch       re-export the .net with kicad-cli
     info                                  parts, pins, nets, placements, wires
     place REF 1=a10 2=a14                 two-pin part, pin by pin
@@ -60,6 +60,8 @@ def _parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser('new')
     s.add_argument('--layout')
+    s.add_argument('--rail-split', action=argparse.BooleanOptionalAction, default=None,
+                   help="the board's power rails are split in the middle (default: prefs)")
     s.add_argument('--force', action='store_true', help='overwrite an existing session')
 
     s = sub.add_parser('netlist')
@@ -276,7 +278,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                     raise CliError(f'{args.session} exists; pass --force to overwrite.')
                 if not args.netlist:
                     raise CliError('new needs --netlist.')
-                session = Session.create(args.session, args.netlist, layout=args.layout)
+                session = Session.create(args.session, args.netlist, layout=args.layout,
+                                         rail_split=args.rail_split)
                 session.save()
                 result, code = session.info(), EXIT_OK
             else:

@@ -73,7 +73,8 @@ def save_session(board: Breadboard, netlist_path: Optional[str], path: str,
     doc: Dict[str, Any] = {
         'version': SESSION_VERSION,
         'netlist': netlist_path or '',
-        'board': {'layout': board.layout},
+        # rail_split is a property of the physical board, not of the user
+        'board': {'layout': board.layout, 'rail_split': board.rail_split},
         'terminals': {},
         'placements': [],
         'wires': [],
@@ -169,7 +170,9 @@ def load_session(path: str) -> Dict[str, Any]:
                     h[1] = ref_rename.get(h[1], h[1])
 
     board_cfg = raw.get('board', {})
-    board = Breadboard(layout=board_cfg.get('layout', 'full'))
+    rail_split = board_cfg.get('rail_split')        # None in older sessions
+    board = Breadboard(layout=board_cfg.get('layout', 'full'),
+                       rail_split=True if rail_split is None else bool(rail_split))
     board.omitted = set(raw.get('omitted', []))
 
     for name, net in raw.get('terminals', {}).items():
@@ -211,5 +214,6 @@ def load_session(path: str) -> Dict[str, Any]:
         'netlist_path': raw.get('netlist', '') or None,
         'board': board,
         'board_layout': board_cfg.get('layout', 'full'),
+        'rail_split': rail_split,
         'annotations': raw.get('annotations', []),
     }
