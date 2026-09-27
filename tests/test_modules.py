@@ -158,6 +158,30 @@ class SipPlacementTest(unittest.TestCase):
         self.assertEqual(covered, {TieHole(c, r) for c in (4, 6) for r in 'abc'})
 
 
+class Ads1115BodyTest(unittest.TestCase):
+    """28 x 17 mm board lying flat, header ~1.3 mm from one long edge
+    (measured 2026-09-27): it reaches 15.7 mm across → 6 pitches on one side,
+    ~2.5 mm past each end pin → the next column (edge right over it)."""
+    d = ALL_DEFS['ADS1115_Module']
+
+    def covered(self, anchor, rot=0):
+        return rules.covered_holes('full', self.d, self.d.place(anchor, flipped=rot), rot)
+
+    def test_from_row_a_it_covers_the_rest_of_the_bank(self):
+        cov = self.covered(TieHole(30, 'a'))
+        expected = ({TieHole(c, r) for c in range(29, 41) for r in 'bcde'}
+                    | {TieHole(29, 'a'), TieHole(40, 'a')})
+        self.assertEqual(cov, expected)
+
+    def test_from_row_e_it_reaches_across_the_gap(self):
+        rows = {h.row for h in self.covered(TieHole(30, 'e'))}
+        self.assertEqual(rows, set('efghi'))       # e: only the end columns
+
+    def test_turned_180_it_covers_toward_row_a(self):
+        rows = {h.row for h in self.covered(TieHole(40, 'j'), rot=2)}
+        self.assertEqual(rows, set('fghij'))
+
+
 class CliCoveredHolesTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()

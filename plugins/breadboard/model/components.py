@@ -861,11 +861,14 @@ def _make_xy308(n: int) -> 'ComponentDef':
                      color='#2e7d32', body=(0, 0, 1, 1))
 
 
-# ADS1115 ADC module (TZT, blue): a 1x10 header; the board lies flat on the
-# breadboard. How far it covers beside the header is PENDING a measurement,
-# so for now only the pins are modelled.
+# ADS1115 ADC module (TZT, blue): a 1x10 header near one long edge of a
+# 28 x 17 mm board that lies flat on the breadboard (measured 2026-09-27).
+# The header sits ~1.3 mm from its edge, so the board reaches ~15.7 mm to the
+# other side: 6 pitches (toward row j at rotation 0). Along the header it
+# passes each end pin by ~2.5 mm, right over the next column's holes, which
+# are counted as covered — a wire cannot go in under the edge.
 ADS1115_MODULE = _make_sip(10, type_id='ADS1115_Module', display_name='ADS1115 ADC module',
-                           color='#1e4fa0')
+                           color='#1e4fa0', body=(1, 1, 0, 6))
 
 _FP_PINHEADER_1XN = re.compile(r'PinHeader_1x(\d+)_P2\.54mm')
 _FP_XY308 = re.compile(r'TerminalBlock_Xinya_XY308-2\.54-(\d+)P')
