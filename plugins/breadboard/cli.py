@@ -5,7 +5,8 @@ Run with KiCad's Python (it has wx, which only `render` needs):
 
     python cli.py --session board.kicad_bbrd <command> [args]
 
-Commands (holes as in headless.py: e10, e10@1, top_plus:3, GND, MCU1.5):
+Commands (holes as in headless.py: e10, e10@1, top_plus:3, GND, MCU1.5; and
+'top_minus:~41' — the free hole of that rail nearest to column 41):
     new --netlist X.net [--layout full] [--[no-]rail-split]   create the session file
     netlist --schematic X.kicad_sch       re-export the .net with kicad-cli
     info                                  parts, pins, nets, placements, wires
@@ -216,8 +217,9 @@ def _run(args, session: Optional[Session]) -> tuple:
         getattr(s, c)(args.refs)
         return {'ok': True, 'omitted': sorted(s.board.omitted)}, EXIT_OK, True
     if c == 'wire':
-        s.wire(args.a, args.b, args.color)
-        return {'ok': True}, EXIT_OK, True
+        from .headless import format_hole
+        w = s.wire(args.a, args.b, args.color)
+        return {'ok': True, 'wire': [format_hole(w.h1), format_hole(w.h2)]}, EXIT_OK, True
     if c == 'unwire':
         s.unwire(args.a, args.b)
         return {'ok': True}, EXIT_OK, True

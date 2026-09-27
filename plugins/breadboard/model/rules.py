@@ -15,7 +15,7 @@ from .breadboard import (
     Breadboard, Hole, TieHole, RailHole, Terminal, ModulePin,
     ALL_ROWS, TOP_ROWS, BOT_ROWS, RAIL_NAMES, RAIL_LEN, RAILLESS_LAYOUTS,
     VERT_RAIL_NAMES, VERT_RAIL_NAMES_RIGHT, VERT_RAIL_LEN_PER_SECTION,
-    TERMINAL_NAMES, _LAYOUT_PARAMS, COLUMNS,
+    TERMINAL_NAMES, _LAYOUT_PARAMS, COLUMNS, RAIL_SPLIT,
     SUNNY11_UPPER_COLS, SUNNY11_UPPER_RAIL_LEN, SUNNY11_LOWER_COLS,
     SUNNY11_LOWER_ROWS, SUNNY11_LOWER_RAIL_LEN,
 )
@@ -35,6 +35,16 @@ def rail_len(layout: str) -> int:
         return 24
     columns, _ = _LAYOUT_PARAMS.get(layout, (COLUMNS, 1))
     return min(RAIL_LEN, columns)
+
+
+def rail_col(index: int, rail_split: bool) -> int:
+    """Tie-strip column a horizontal rail hole sits over: groups of 5 from
+    column 2 with every 6th column empty, and on split rails a 2-column wider
+    gap at the electrical break (RAIL_SPLIT)."""
+    col = ((index - 1) // 5) * 6 + (index - 1) % 5 + 2
+    if rail_split and index > RAIL_SPLIT:
+        col += 2
+    return col
 
 
 def _standard_holes(layout: str) -> Iterator[Hole]:

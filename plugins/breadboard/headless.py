@@ -23,7 +23,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .model import (
     Breadboard, PlacedComponent, TieHole, RailHole, Terminal, ModulePin, Hole,
-    ALL_ROWS, ALL_RAIL_NAMES, TERMINAL_NAMES, ALL_DEFS, TO92_PINOUT_VARIANTS, LED_COLORS,
+    ALL_ROWS, ALL_RAIL_NAMES, RAIL_NAMES, TERMINAL_NAMES, ALL_DEFS, TO92_PINOUT_VARIANTS, LED_COLORS,
     Netlist, parse_netlist, guess_type_id, validate,
     save_session, load_session, simulate, initial_terminal_voltages,
 )
@@ -44,6 +44,7 @@ class CliError(Exception):
 _TIE_RE = re.compile(r'^([a-jA-J])(\d+)(?:@(\d+))?$')
 _RAIL_RE = re.compile(r'^([a-z_]+):(\d+)(?:@(\d+))?$')
 _MODULE_RE = re.compile(r'^([A-Za-z_]+\d+)\.(\d+)$')
+_NEAR_RE = re.compile(r'^([a-z_]+):~(\d+)(?:@(\d+))?$')
 
 
 def parse_hole(text: str) -> Hole:
@@ -179,6 +180,25 @@ class Session:
         return {h: ref for ref in self.board.placements if ref != skip_ref
                 for h in self._covered_by(ref)}
 
+    def _resolve(self, text, taken=()) -> Hole:
+        """A hole, where 'rail:~col[@section]' stands for the free hole of a
+        horizontal rail nearest to that column (ties: the lower index)."""
+        m = _NEAR_RE.match(text.strip()) if isinstance(text, str) else None
+        if not m:
+            return _as_hole(text)
+        name, col, section = m.group(1), int(m.group(2)), int(m.group(3) or 0)
+        if name not in RAIL_NAMES or self.board.layout == 'sunny-11':
+            raise CliError(f'~ picks a hole on a horizontal rail ({", ".join(RAIL_NAMES)}) '
+                           f'of a standard board, not {name!r}.')
+        busy = set(self._occupants()) | set(self._bodies()) | set(taken)
+        free = [i for i in range(1, rules.rail_len(self.board.layout) + 1)
+                if RailHole(name, i, section) not in busy
+                and rules.hole_exists(self.board, RailHole(name, i, section))]
+        if not free:
+            raise CliError(f'No free hole left on {name}' + (f'@{section}' if section else '') + '.')
+        best = min(free, key=lambda i: (abs(rules.rail_col(i, self.board.rail_split) - col), i))
+        return RailHole(name, best, section)
+
     def _require_free(self, holes, skip_ref: str = '', covered=()) -> None:
         """Every hole in `holes` must exist and be free of leads and bodies;
         every hole in `covered` (the new part's body) free of leads and bodies."""
@@ -223,7 +243,9 @@ class Session:
             if anchor is not None or not pins or set(pins) != {1, 2}:
                 raise CliError(f'{ref} has two pins: give both, e.g. 1=a10 2=a14 '
                                f'(pin names: {comp_def.pin_names}).')
-            pin_holes = {int(p): _as_hole(h) for p, h in pins.items()}
+            pin_holes: Dict[int, Hole] = {}
+            for p, h in sorted(pins.items()):
+                pin_holes[int(p)] = self._resolve(h, taken=pin_holes.values())
             if pin_holes[1] == pin_holes[2]:
                 raise CliError('Both pins in the same hole.')
         else:
@@ -282,8 +304,9 @@ class Session:
         if self.board.remove(ref) is None:
             raise CliError(f'{ref} is not placed.')
 
-    def wire(self, a, b, color: Optional[str] = None) -> None:
-        h1, h2 = _as_hole(a), _as_hole(b)
+    def wire(self, a, b, color: Optional[str] = None):
+        h1 = self._resolve(a)
+        h2 = self._resolve(b, taken=(h1,))
         if h1 == h2:
             raise CliError('A wire needs two different holes.')
         if self.board.wire_at(h1, h2):
@@ -292,7 +315,7 @@ class Session:
             if isinstance(h, ModulePin) and not rules.hole_exists(self.board, h):
                 raise CliError(f'{format_hole(h)}: no such module pin is placed.')
         self._require_free([h for h in (h1, h2) if not isinstance(h, ModulePin)])
-        self.board.add_wire(h1, h2, color or DEFAULT_WIRE_COLOR)
+        return self.board.add_wire(h1, h2, color or DEFAULT_WIRE_COLOR)
 
     def unwire(self, a, b) -> None:
         w = self.board.wire_at(_as_hole(a), _as_hole(b))

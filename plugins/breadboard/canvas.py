@@ -889,10 +889,7 @@ class CanvasLayout:
         2-column gap at RAIL_SPLIT gives a 3-column gap at the electrical mid-rail
         disconnect vs the normal 1-column inter-group gap.
         """
-        col = ((index - 1) // 5) * 6 + (index - 1) % 5 + 2
-        if self.rail_split and index > RAIL_SPLIT:
-            col += 2
-        return self.board_left + (col - 1) * PITCH
+        return self.board_left + (rules.rail_col(index, self.rail_split) - 1) * PITCH
 
     def hole_xy(self, hole: Hole) -> Optional[Tuple[int, int]]:
         """Return (x, y) centre of a hole, or None if not renderable."""
