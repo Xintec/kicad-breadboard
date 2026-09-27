@@ -163,7 +163,7 @@ def _render(session: Session, out: str, with_check: bool) -> dict:
         canvas.branding_image = p.branding_image
         canvas.rail_style = p.rail_style
         canvas.layout = CanvasLayout(session.board.layout, p.binding_post_side,
-                                     p.show_branding, p.rail_split, p.num_terminals)
+                                     p.show_branding, session.board.rail_split, p.num_terminals)
         canvas._annotations = [a for d in session.annotations
                                if (a := canvas._ann_from_json(d)) is not None]
         canvas._populate_module_pins()

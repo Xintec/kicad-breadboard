@@ -71,6 +71,30 @@ class RailSplitTest(unittest.TestCase):
         self.assertFalse(json.loads(r.stdout)['rail_split'])
 
 
+class RenderRailSplitTest(unittest.TestCase):
+    def test_render_draws_the_sessions_rails(self):
+        import wx
+        from breadboard import cli
+        from breadboard.canvas import CanvasLayout
+        app = wx.App(False)  # noqa: F841
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        s = hl.Session.create(os.path.join(d, 'r.kicad_bbrd'), DEMO_NET,
+                              prefs=Preferences(rail_split=True), rail_split=False)
+        seen = []
+        orig = CanvasLayout.__init__
+
+        def spy(layout_self, *a, **k):
+            orig(layout_self, *a, **k)
+            seen.append(layout_self.rail_split)
+        CanvasLayout.__init__ = spy
+        try:
+            cli._render(s, os.path.join(d, 'r.png'), with_check=False)
+        finally:
+            CanvasLayout.__init__ = orig
+        self.assertEqual(seen[-1], False)
+
+
 class WindowRailSplitTest(unittest.TestCase):
     def test_window_adopts_the_session_value(self):
         import wx
