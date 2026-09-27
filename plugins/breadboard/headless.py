@@ -132,7 +132,15 @@ class Session:
                    data.get('annotations', []), prefs or load_prefs())
 
     def save(self) -> None:
-        save_session(self.board, self.netlist_path, self.path, self.annotations)
+        # The netlist is named relative to the session, so a session kept in
+        # a project folder survives moving or cloning it (absolute when the
+        # two are on different drives).
+        try:
+            net = os.path.relpath(self.netlist_path,
+                                  os.path.dirname(os.path.abspath(self.path)))
+        except ValueError:
+            net = self.netlist_path
+        save_session(self.board, net, self.path, self.annotations)
 
     # -- lookups -----------------------------------------------------------
 

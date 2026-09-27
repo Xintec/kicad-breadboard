@@ -1331,6 +1331,9 @@ class BreadboardWindow(wx.Frame):
 
         # Reload the netlist from the saved path (if present and netlist not yet loaded)
         saved_netlist = result.get('netlist_path')
+        if saved_netlist and not os.path.isabs(saved_netlist):
+            # stored relative to the session (the CLI does so)
+            saved_netlist = os.path.join(os.path.dirname(os.path.abspath(path)), saved_netlist)
         if saved_netlist and self.netlist is None:
             try:
                 self._load_netlist(saved_netlist)

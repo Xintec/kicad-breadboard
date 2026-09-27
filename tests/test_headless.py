@@ -184,6 +184,22 @@ class PersistenceTest(_SessionCase):
         with open(self.path, encoding='utf-8') as f:
             self.assertEqual(json.load(f)['annotations'], doc['annotations'])
 
+    def test_netlist_path_is_stored_relative_to_the_session(self):
+        # a session kept in a project folder must survive moving/cloning it
+        net = os.path.join(self.dir, 'local.net')
+        shutil.copy(DEMO_NET, net)
+        s = hl.Session.create(os.path.join(self.dir, 'l.kicad_bbrd'), net, prefs=Preferences())
+        s.save()
+        with open(s.path, encoding='utf-8') as f:
+            self.assertEqual(json.load(f)['netlist'], 'local.net')
+        moved = os.path.join(self.dir, 'moved')
+        os.mkdir(moved)
+        shutil.copy(s.path, moved)
+        shutil.copy(net, moved)
+        s2 = hl.Session.open(os.path.join(moved, 'l.kicad_bbrd'), prefs=Preferences())
+        self.assertEqual(os.path.normcase(s2.netlist_path),
+                         os.path.normcase(os.path.join(moved, 'local.net')))
+
     def test_layout_comes_from_the_session(self):
         s = hl.Session.create(os.path.join(self.dir, 'h.kicad_bbrd'), DEMO_NET,
                               layout='half', prefs=Preferences())

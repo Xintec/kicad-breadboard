@@ -54,6 +54,11 @@ class WindowReloadTest(unittest.TestCase):
         st = os.stat(self.path)   # make sure the mtime moves even on coarse clocks
         os.utime(self.path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))
 
+    def test_relative_netlist_path_resolves_against_the_session(self):
+        # setUp's session names its netlist relative to itself ('demo.net')
+        self.assertIsNotNone(self.win.netlist)
+        self.assertIn('U1', self.win.netlist.components)
+
     def test_untouched_board_follows_the_file(self):
         self.external_edit(ref='R2', pins={1: 'a20', 2: 'a24'})
         self.win._check_session_on_disk()
