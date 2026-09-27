@@ -197,6 +197,11 @@ def parse(path: str | Path) -> Netlist:
                 pval  = _val(_find(prop, 'value'))
                 if pname:
                     props[pname] = pval
+            # The assigned footprint names the physical part (module, header,
+            # terminal block…); guess_type_id reads it from here.
+            footprint = _val(_find(comp, 'footprint'))
+            if footprint:
+                props['Footprint'] = footprint
             if ref:
                 components[ref] = NetlistComponent(
                     ref=ref, value=value, symbol=part, lib=lib, description=desc,

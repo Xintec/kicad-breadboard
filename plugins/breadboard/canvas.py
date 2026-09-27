@@ -61,6 +61,13 @@ def _transparent_brush() -> 'wx.Brush':
 _TO92_BASE_TYPES = frozenset({'NPN', 'PNP', 'JFET_N', 'JFET_P', 'BS170', 'NMOS', 'PMOS'})
 
 
+def _is_single_row_type(type_id: str) -> bool:
+    """Pin headers (SIP<n>), XY308 terminal blocks and header-mounted modules
+    — see model/components.py _type_from_footprint."""
+    return (type_id == 'ADS1115_Module' or type_id.startswith('XY308_')
+            or (type_id.startswith('SIP') and type_id[3:].isdigit()))
+
+
 def _is_to92_type(type_id: str) -> bool:
     """True for TO-92-style 3-pin parts, including per-symbol pin-order
     variants dynamically registered by guess_type_id's _pin_order_type_id
@@ -100,6 +107,7 @@ from .model import (
     ARDUINO_UNO_FN_NAMES,
 )
 from .model import rules
+from .model.components import PHYS_ROW
 
 # ---------------------------------------------------------------------------
 # Layout constants (pixels)
@@ -3003,7 +3011,11 @@ class BreadboardCanvas(wx.Panel):
                 new_anchor = TieHole(new_col, false_row, false_section)
             else:
                 new_col = pin1.col + (n if new_flipped else -n)
-                new_anchor = TieHole(new_col, 'e', pin1.section)
+                # A wide module (row_span) is anchored on its upper pin row.
+                anchor_row = (min((h.row for h in placed.pin_holes.values()),
+                                  key=PHYS_ROW.get)
+                              if comp_def.row_span else 'e')
+                new_anchor = TieHole(new_col, anchor_row, pin1.section)
         elif comp_def.pin_count == 2:
             # For 2-pin axial: use pin2 as new anchor and toggle flipped.
             # place(pin2, flipped=True)  → pin1 at pin2.col, pin2 at pin2.col-span
@@ -4106,6 +4118,14 @@ class BreadboardCanvas(wx.Panel):
         if not holes:
             return
 
+        # A body also spans the holes it covers (rules.covered_holes): the
+        # rows between a wide module's pins, a module's overhang, the row
+        # beside a terminal block.
+        covered = [lay.hole_xy(h) for h in rules.covered_holes(
+            lay.board_layout, comp_def, placed.pin_holes, placed.flipped)]
+        holes += [xy for xy in covered if xy]
+        pad = PITCH // 2 - 1 if covered else 0   # over the outer holes, short of the next
+
         xs = [xy[0] for xy in holes]
         ys = [xy[1] for xy in holes]
 
@@ -4140,6 +4160,9 @@ class BreadboardCanvas(wx.Panel):
                 body_rect = wx.Rect(x_min - 4, y_min - 2, x_max - x_min + 8, y_max - y_min + 4)
             else:
                 body_rect = wx.Rect(x_min - 2, y_min - 4, x_max - x_min + 4, y_max - y_min + 8)
+            if pad:
+                body_rect = wx.Rect(x_min - pad, y_min - pad,
+                                    x_max - x_min + 2 * pad, y_max - y_min + 2 * pad)
 
             # Legs: small grey tabs extending out from the body at each pin,
             # perpendicular to the body's long axis. TOP_ROWS always sit on
@@ -4329,6 +4352,10 @@ class BreadboardCanvas(wx.Panel):
         else:
             # 3-pin and 4-pin components
             _SLIDER_TYPES = frozenset({'SPDT', 'SP3T'})
+            if _is_single_row_type(placed.type_id):
+                self._draw_single_row_part(dc, comp_def, placed, ref, x_min, x_max,
+                                           y_min, y_max, pad, selected)
+                return
             if placed.type_id in _SLIDER_TYPES:
                 # See _draw_slider_switch / TO-92's comment above: axis and
                 # side are derived from `flipped` + the real resolved pixel
@@ -4510,6 +4537,31 @@ class BreadboardCanvas(wx.Panel):
             label_x = (x_min + x_max) // 2
             label_y = (y_min + y_max) // 2 - 5
             dc.DrawText(ref, label_x - dc.GetTextExtent(ref).Width // 2, label_y)
+
+    def _draw_single_row_part(self, dc: wx.DC, comp_def: ComponentDef,
+                              placed: PlacedComponent, ref: str,
+                              x_min: int, x_max: int, y_min: int, y_max: int,
+                              pad: int, selected: bool) -> None:
+        """Pin header, terminal block or header-mounted module: a flat body
+        over its pins and whatever it covers, pins as gold squares, the
+        reference beside it."""
+        pad = pad or PITCH // 2 - 1
+        body_rect = wx.Rect(x_min - pad, y_min - pad,
+                            x_max - x_min + 2 * pad, y_max - y_min + 2 * pad)
+        dc.SetBrush(wx.Brush(comp_def.color))
+        dc.SetPen(wx.Pen('#333333', 2 if selected else 1))
+        dc.DrawRoundedRectangle(body_rect, 2)
+        dc.SetBrush(wx.Brush('#c9a227'))
+        dc.SetPen(wx.Pen('#7a6010', 1))
+        for hole in placed.pin_holes.values():
+            xy = self.layout.hole_xy(hole)
+            if xy:
+                dc.DrawRectangle(xy[0] - 2, xy[1] - 2, 5, 5)
+        dc.SetFont(wx.Font(7, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL,
+                           wx.FONTWEIGHT_NORMAL))
+        dc.SetTextForeground('#222222')
+        tw, th = dc.GetTextExtent(ref)
+        dc.DrawText(ref, (x_min + x_max) // 2 - tw // 2, body_rect.GetTop() - th - 1)
 
     def _draw_module_component(self, dc: wx.DC, comp_def: ComponentDef,
                                placed: PlacedComponent, ref: str,

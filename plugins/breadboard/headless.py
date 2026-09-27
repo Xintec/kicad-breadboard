@@ -158,8 +158,23 @@ class Session:
                     occ.setdefault(h, []).append(label)
         return occ
 
-    def _require_free(self, holes, skip_ref: str = '') -> None:
+    def _covered_by(self, ref: str) -> set:
+        p = self.board.get_placement(ref)
+        comp_def = ALL_DEFS.get(p.type_id) if p else None
+        if comp_def is None:
+            return set()
+        return rules.covered_holes(self.board.layout, comp_def, p.pin_holes, p.flipped)
+
+    def _bodies(self, skip_ref: str = '') -> Dict[Hole, str]:
+        """Holes under a placed part's body → that part's ref."""
+        return {h: ref for ref in self.board.placements if ref != skip_ref
+                for h in self._covered_by(ref)}
+
+    def _require_free(self, holes, skip_ref: str = '', covered=()) -> None:
+        """Every hole in `holes` must exist and be free of leads and bodies;
+        every hole in `covered` (the new part's body) free of leads and bodies."""
         occ = self._occupants(skip_ref)
+        bodies = self._bodies(skip_ref)
         for h in holes:
             if not rules.hole_exists(self.board, h, self.terminals):
                 raise CliError(f'{format_hole(h)} is not a hole on this {self.board.layout} '
@@ -167,6 +182,14 @@ class Session:
                                            if isinstance(h, Terminal) else '') + '.')
             if h in occ and not isinstance(h, Terminal):
                 raise CliError(f'{format_hole(h)} is taken by {", ".join(occ[h])}.')
+            if h in bodies:
+                raise CliError(f'{format_hole(h)} is under the body of {bodies[h]}.')
+        for h in covered:
+            if h in occ:
+                raise CliError(f'The body would cover {format_hole(h)}, '
+                               f'taken by {", ".join(occ[h])}.')
+            if h in bodies:
+                raise CliError(f'The body would overlap {bodies[h]} at {format_hole(h)}.')
 
     # -- editing -----------------------------------------------------------
 
@@ -212,7 +235,9 @@ class Session:
                 raise CliError(f'{ref} does not fit at {anchor} (rotation {rot}).')
 
         self._require_free([h for h in pin_holes.values() if not isinstance(h, ModulePin)],
-                           skip_ref=ref)
+                           skip_ref=ref,
+                           covered=rules.covered_holes(self.board.layout, comp_def,
+                                                       pin_holes, rot))
 
         color = ''
         if type_id == 'LED':
@@ -286,6 +311,11 @@ class Session:
                                       'pins' if comp_def.pin_count == 2 and not comp_def.is_dip
                                       else 'anchor')
                 entry['pinouts'] = [n for n, _ in TO92_PINOUT_VARIANTS.get(type_id, [])]
+                if placed:
+                    covers = sorted(self._covered_by(ref),
+                                    key=lambda h: (h.section, h.col, h.row))
+                    if covers:
+                        entry['covers'] = [format_hole(h) for h in covers]
             comps.append(entry)
         return {
             'session': os.path.abspath(self.path),
@@ -306,9 +336,18 @@ class Session:
         """Physical problems the schematic check cannot see: two leads in one
         hole, and leads in holes this board does not have."""
         out = []
-        for h, who in self._occupants().items():
+        leads = self._occupants()
+        for h, who in leads.items():
             if len(who) > 1:
                 out.append({'kind': 'shared_hole', 'hole': format_hole(h), 'by': who})
+        bodies: Dict[Hole, List[str]] = {}
+        for ref in self.board.placements:
+            for h in self._covered_by(ref):
+                bodies.setdefault(h, []).append(ref)
+        for h, refs in bodies.items():
+            if h in leads or len(refs) > 1:
+                out.append({'kind': 'covered_hole', 'hole': format_hole(h),
+                            'by': [f'{r} body' for r in refs] + leads.get(h, [])})
         seen = set()
         for ref, p in self.board.placements.items():
             for pin, h in p.pin_holes.items():

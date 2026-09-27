@@ -9,7 +9,7 @@ it and the headless CLI apply the same rules.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Dict, FrozenSet, Iterator, Tuple
+from typing import Dict, FrozenSet, Iterator, Set, Tuple
 
 from .breadboard import (
     Breadboard, Hole, TieHole, RailHole, Terminal, ModulePin,
@@ -19,7 +19,7 @@ from .breadboard import (
     SUNNY11_UPPER_COLS, SUNNY11_UPPER_RAIL_LEN, SUNNY11_LOWER_COLS,
     SUNNY11_LOWER_ROWS, SUNNY11_LOWER_RAIL_LEN,
 )
-from .components import ComponentDef
+from .components import ComponentDef, PHYS_ROW, ROW_AT_PHYS
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +178,58 @@ def resolve_pin_holes(layout: str, comp_def: ComponentDef, anchor: TieHole, flip
     """comp_def.place()/place_lenient(), routed through sunny-11's
     multi-gutter DIP logic when the DIP is anchored on its upper blocks.
     Raises AssertionError/IndexError when a pin cannot be resolved (strict)."""
+    if comp_def.row_span and layout == 'sunny-11':
+        # Its portrait blocks and 6-row lower block have no row pair this far apart.
+        if lenient:
+            return {}
+        raise IndexError(f'{comp_def.display_name} does not fit sunny-11')
     if comp_def.is_dip and layout == 'sunny-11' and anchor.section in (0, 1):
         return sunny11_place_dip(comp_def, anchor, flipped, lenient=lenient)
     return comp_def.place_lenient(anchor, flipped=flipped) if lenient \
         else comp_def.place(anchor, flipped=flipped)
+
+
+# ---------------------------------------------------------------------------
+# Holes under a component's body
+# ---------------------------------------------------------------------------
+
+def covered_holes(layout: str, comp_def: ComponentDef, pin_holes: Dict[int, Hole],
+                  flipped: int = 0) -> Set[TieHole]:
+    """Tie holes a placed part's body covers, pins excluded: nothing can go in
+    them. The rows between a wide module's pin rows, plus comp_def.body's
+    margins turned with the part. Only for the standard layouts (sunny-11's
+    blocks are not on one row grid); empty for parts without a body."""
+    if layout == 'sunny-11' or not (comp_def.row_span or any(comp_def.body)):
+        return set()
+    ties = [h for h in pin_holes.values() if isinstance(h, TieHole)]
+    if not ties:
+        return set()
+    cols = [h.col for h in ties]
+    rows = [PHYS_ROW[h.row] for h in ties]
+    before, after, low, high = comp_def.body
+    if comp_def.is_dip or comp_def.pin_count < 3:
+        turns = 2 if flipped else 0       # DIP-style parts: flipped = 180°
+    else:
+        turns = flipped % 4               # single-row parts: quad rotation
+    # Turn the rotation-0 margins (along = +columns, across = +rows) with the
+    # part: 90° clockwise takes +columns to +rows and +rows to -columns.
+    if turns == 0:
+        c_lo, c_hi, r_lo, r_hi = before, after, low, high
+    elif turns == 1:
+        c_lo, c_hi, r_lo, r_hi = high, low, before, after
+    elif turns == 2:
+        c_lo, c_hi, r_lo, r_hi = after, before, high, low
+    else:
+        c_lo, c_hi, r_lo, r_hi = low, high, after, before
+    section = ties[0].section
+    pins = set(ties)
+    real = board_holes(layout)
+    out: Set[TieHole] = set()
+    for col in range(min(cols) - c_lo, max(cols) + c_hi + 1):
+        for prow in range(min(rows) - r_lo, max(rows) + r_hi + 1):
+            if col < 1 or prow not in ROW_AT_PHYS:
+                continue
+            h = TieHole(col, ROW_AT_PHYS[prow], section)
+            if h in real and h not in pins:
+                out.add(h)
+    return out

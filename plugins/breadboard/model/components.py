@@ -17,6 +17,7 @@ Pin numbering follows the standard KiCad symbol convention for each part.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -24,6 +25,13 @@ from .breadboard import (
     TOP_ROWS, BOT_ROWS, ALL_ROWS, COLUMNS,
     TieHole, RailHole, Terminal, Hole,
 )
+
+# Physical position of each tie row across the board, in 0.1 in pitches:
+# a..e are 0-4 and f..j 7-11, because the centre gap is 0.3 in (a DIP's e/f
+# rows are three pitches apart). Used for parts wider than a DIP.
+PHYS_ROW: Dict[str, int] = {**{r: i for i, r in enumerate(TOP_ROWS)},
+                            **{r: 7 + i for i, r in enumerate(BOT_ROWS)}}
+ROW_AT_PHYS: Dict[int, str] = {v: k for k, v in PHYS_ROW.items()}
 
 
 @dataclass(frozen=True)
@@ -95,20 +103,44 @@ class ComponentDef:
     is_dip: bool = False                # True → anchor forced to row 'e'
     symmetric: bool = False             # True → non-polar; validator accepts either pin order
     is_module: bool = False             # True → draw as PCB board (Arduino/RPi style)
+    # Wide two-row modules sitting on the board (e.g. NodeMCU): pitches between
+    # the two pin rows (PHYS_ROW). 0 = an ordinary DIP straddling e/f.
+    row_span: int = 0
+    # Holes the body covers beyond its pins, in pitches, at rotation 0:
+    # (along before pin 1, along after the last pin, across toward row a,
+    # across toward row j). The rows between a wide module's pin rows are
+    # always covered. See rules.covered_holes.
+    body: Tuple[int, int, int, int] = (0, 0, 0, 0)
 
     @property
     def pin_count(self) -> int:
         return len(self.pin_offsets)
 
+    def _resolve_wide(self, offset: PinOffset, anchor: TieHole, flipped: int) -> TieHole:
+        """A pin of a wide module: the anchor row holds the cross_gap=False
+        side, the row row_span pitches below it the other; flipped is 180°
+        (column order mirrored, sides swapped) as for a DIP."""
+        bottom = PHYS_ROW[anchor.row] + self.row_span
+        if bottom not in ROW_AT_PHYS:
+            raise IndexError(f'{self.display_name}: no row {self.row_span} pitches '
+                             f'below row {anchor.row}')
+        cross = (not offset.cross_gap) if flipped else offset.cross_gap
+        col = anchor.col + (-offset.col_delta if flipped else offset.col_delta)
+        return TieHole(col, ROW_AT_PHYS[bottom] if cross else anchor.row, anchor.section)
+
     def place(self, anchor: TieHole, flipped: int = 0) -> Dict[int, Hole]:
         """
         Resolve all pin holes given an anchor hole.
-        For DIP ICs the anchor row is forced to 'e'.
+        For DIP ICs the anchor row is forced to 'e'; for wide modules
+        (row_span) the anchor row is the upper pin row.
         Single-bank components with 3+ pins (TO-92, sliders, POT) get 4-way
         90°-step rotation (see PinOffset.resolve's quad_rotate); DIP ICs and
         2-pin axial parts keep the original 0/1 mirror-only behaviour.
         Returns {pin_number: TieHole}.
         """
+        if self.row_span:
+            return {pin: self._resolve_wide(offset, anchor, flipped)
+                    for pin, offset in self.pin_offsets.items()}
         if self.is_dip:
             anchor = TieHole(anchor.col, 'e', anchor.section)
         quad = not self.is_dip and not self.is_module and self.pin_count >= 3
@@ -122,14 +154,15 @@ class ComponentDef:
         discarding every other pin's position too. Used for placement-preview
         helpers (ratsnest) where partial feedback is better than none;
         actual placement still goes through the strict place()."""
-        if self.is_dip:
+        if self.is_dip and not self.row_span:
             anchor = TieHole(anchor.col, 'e', anchor.section)
         quad = not self.is_dip and not self.is_module and self.pin_count >= 3
         result: Dict[int, Hole] = {}
         for pin, offset in self.pin_offsets.items():
             try:
-                result[pin] = offset.resolve(anchor, flipped, cross_flip=self.is_dip,
-                                              quad_rotate=quad)
+                result[pin] = (self._resolve_wide(offset, anchor, flipped) if self.row_span
+                               else offset.resolve(anchor, flipped, cross_flip=self.is_dip,
+                                                   quad_rotate=quad))
             except (AssertionError, IndexError, KeyError):
                 continue
         return result
@@ -779,11 +812,127 @@ SWITCH_SP3T = ComponentDef(
 )
 
 # ---------------------------------------------------------------------------
+# Real modules and single-row parts, recognised by footprint (guess_type_id)
+# ---------------------------------------------------------------------------
+
+# NodeMCU Amica V2 (ESP8266, AZ-Delivery) sitting on the board. Dimensions from
+# the BikainGarden footprint NodeMCU_Amica_V2_2x15_P2.54mm_22.86mm, measured
+# with a ruler: pin rows 22.86 mm (9 pitches) apart, so on rows b+i it leaves
+# rows a and j free; the 48 x 26 mm body passes the end pins by 6.0/6.4 mm,
+# covering two more columns at each end, and its sides clear rows a and j.
+# Pads 1-15 are one row and 16-30 the other, both counted from the antenna
+# end, so pins 1 and 16 share a column (not DIP numbering).
+NODEMCU_AMICA_V2 = ComponentDef(
+    type_id='NodeMCU_Amica_V2',
+    display_name='NodeMCU Amica V2 (ESP8266)',
+    ref_prefix='U',
+    pin_offsets={**{n: PinOffset(n - 1) for n in range(1, 16)},
+                 **{n: PinOffset(n - 16, cross_gap=True) for n in range(16, 31)}},
+    pin_names={},       # names come from the netlist's pin functions
+    color='#1b1b1b',
+    is_dip=True,
+    row_span=9,
+    body=(2, 2, 0, 0),
+)
+
+
+def _make_sip(n: int, type_id: str = '', display_name: str = '',
+              color: str = '#222222', body: Tuple[int, int, int, int] = (0, 0, 0, 0)
+              ) -> 'ComponentDef':
+    """A single row of n pins on consecutive columns (pin headers, terminal
+    blocks, header-mounted modules). With 3+ pins it rotates in 90° steps
+    like a TO-92; with 2 it is placed pin by pin like any two-pin part."""
+    return ComponentDef(
+        type_id=type_id or f'SIP{n}',
+        display_name=display_name or f'{n}-pin header',
+        ref_prefix='J',
+        pin_offsets={i: PinOffset(i - 1) for i in range(1, n + 1)},
+        pin_names={i: str(i) for i in range(1, n + 1)},
+        color=color,
+        body=body,
+    )
+
+
+def _make_xy308(n: int) -> 'ComponentDef':
+    """Xinya XY308-2.54 screw terminal block. KiCad's footprint puts the body
+    3.1 mm and 3.4 mm either side of the pin row: it covers the row on each
+    side, and ends within a pitch of the end pins."""
+    return _make_sip(n, type_id=f'XY308_{n}', display_name=f'{n}-way terminal block (XY308)',
+                     color='#2e7d32', body=(0, 0, 1, 1))
+
+
+# ADS1115 ADC module (TZT, blue): a 1x10 header; the board lies flat on the
+# breadboard. How far it covers beside the header is PENDING a measurement,
+# so for now only the pins are modelled.
+ADS1115_MODULE = _make_sip(10, type_id='ADS1115_Module', display_name='ADS1115 ADC module',
+                           color='#1e4fa0')
+
+_FP_PINHEADER_1XN = re.compile(r'PinHeader_1x(\d+)_P2\.54mm')
+_FP_XY308 = re.compile(r'TerminalBlock_Xinya_XY308-2\.54-(\d+)P')
+
+
+def _type_from_footprint(footprint: str, value: str) -> Optional[str]:
+    """type_id for parts identified by their footprint (generic SIP-N and
+    XY308-N defs are built on lookup, see _DefRegistry). None: not a
+    footprint we know."""
+    if 'NodeMCU_Amica_V2' in footprint:
+        return NODEMCU_AMICA_V2.type_id
+    m = _FP_PINHEADER_1XN.search(footprint)
+    if m:
+        n = int(m.group(1))
+        if n == 10 and 'ADS1115' in value.upper():
+            return ADS1115_MODULE.type_id
+        return f'SIP{n}'
+    m = _FP_XY308.search(footprint)
+    if m:
+        return f'XY308_{m.group(1)}'
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Registry: map type_id → ComponentDef
 # Also provides heuristic lookup from KiCad symbol/value strings.
 # ---------------------------------------------------------------------------
 
-ALL_DEFS: Dict[str, ComponentDef] = {
+class _DefRegistry(dict):
+    """type_id → ComponentDef. Generic types (DIP<n>, SIP<n>, XY308_<n>,
+    transistor pin-order variants such as PNP_ECB) are built from their name
+    on first lookup, so a session naming one resolves even in a process where
+    guess_type_id never met that part (e.g. reopening a saved board)."""
+
+    def __missing__(self, type_id: str) -> ComponentDef:
+        d = _make_from_name(type_id)
+        if d is None:
+            raise KeyError(type_id)
+        self[type_id] = d
+        return d
+
+    def get(self, type_id, default=None):
+        try:
+            return self[type_id]
+        except KeyError:
+            return default
+
+    def __contains__(self, type_id) -> bool:
+        return self.get(type_id) is not None
+
+
+def _make_from_name(type_id: str) -> Optional[ComponentDef]:
+    m = re.fullmatch(r'(DIP|SIP|XY308_)(\d+)', type_id)
+    if m:
+        n = int(m.group(2))
+        if m.group(1) == 'DIP':
+            return _make_dip(n) if n >= 4 and n % 2 == 0 else None
+        if n < 2:
+            return None
+        return _make_sip(n) if m.group(1) == 'SIP' else _make_xy308(n)
+    base, _, order = type_id.rpartition('_')
+    if base in _PIN_ORDER_CANONICAL and sorted(order) == sorted(_PIN_ORDER_CANONICAL[base]):
+        return _make_pin_order_def(base, tuple(order))
+    return None
+
+
+ALL_DEFS: Dict[str, ComponentDef] = _DefRegistry({
     d.type_id: d for d in [
         RESISTOR, CAPACITOR, CAPACITOR_ELECTROLYTIC, INDUCTOR,
         DIODE, ZENER, LED,
@@ -794,8 +943,9 @@ ALL_DEFS: Dict[str, ComponentDef] = {
         TEENSY_41,
         RASPBERRY_PI_4, RASPBERRY_PI_PICO,
         SWITCH_SPST, SWITCH_SPDT, SWITCH_SP3T,
+        NODEMCU_AMICA_V2, ADS1115_MODULE,
     ]
-}
+})
 
 # Pre-register generic DIP sizes for all common IC packages.
 # Any even pin count not listed here is generated on demand in guess_type_id.
@@ -849,18 +999,24 @@ def _pin_order_type_id(base_type: str, sim_pins: str) -> str:
     if order == canonical:
         return base_type
     type_id = f'{base_type}_{"".join(order)}'
-    if type_id not in ALL_DEFS:
-        base_def = ALL_DEFS[base_type]
-        ALL_DEFS[type_id] = ComponentDef(
-            type_id=type_id,
-            display_name=f'{base_def.display_name} ({"".join(order)})',
-            ref_prefix='Q',
-            pin_offsets={pin: PinOffset(canonical.index(func))
-                         for pin, func in mapping.items()},
-            pin_names=mapping,
-            color=base_def.color,
-        )
+    ALL_DEFS[type_id]      # built on first lookup (_DefRegistry)
     return type_id
+
+
+def _make_pin_order_def(base_type: str, order: Tuple[str, ...]) -> ComponentDef:
+    """A transistor-family def whose schematic pins 1-3 are `order`
+    (e.g. ('E', 'C', 'B')) instead of the base def's canonical order."""
+    canonical = _PIN_ORDER_CANONICAL[base_type]
+    base_def = ALL_DEFS[base_type]
+    mapping = {i + 1: func for i, func in enumerate(order)}
+    return ComponentDef(
+        type_id=f'{base_type}_{"".join(order)}',
+        display_name=f'{base_def.display_name} ({"".join(order)})',
+        ref_prefix='Q',
+        pin_offsets={pin: PinOffset(canonical.index(func)) for pin, func in mapping.items()},
+        pin_names=mapping,
+        color=base_def.color,
+    )
 
 
 def guess_type_id(ref: str, value: str, symbol: str, lib: str = '',
@@ -886,6 +1042,12 @@ def guess_type_id(ref: str, value: str, symbol: str, lib: str = '',
     d = description.upper()
     sim_device = (properties or {}).get('Sim.Device', '').upper()
     sim_pins = (properties or {}).get('Sim.Pins', '')
+
+    # The footprint, when it names a part we model, is the physical truth:
+    # it beats every symbol/value heuristic below.
+    by_fp = _type_from_footprint((properties or {}).get('Footprint', ''), value)
+    if by_fp:
+        return by_fp
 
     # Board modules — all KiCad variants map to a single standard layout.
     # Arduino Uno R3: 32-pin symbol; symbol name contains "UNO".
