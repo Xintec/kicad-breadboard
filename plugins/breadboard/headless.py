@@ -219,7 +219,7 @@ class Session:
             if at is None:
                 raise CliError(f'{ref} is a module: give its canvas position (at x,y).')
             pin_holes: Dict[int, Hole] = {p: ModulePin(ref, p) for p in comp_def.pin_offsets}
-        elif comp_def.pin_count == 2 and not comp_def.is_dip:
+        elif comp_def.two_lead:
             if anchor is not None or not pins or set(pins) != {1, 2}:
                 raise CliError(f'{ref} has two pins: give both, e.g. 1=a10 2=a14 '
                                f'(pin names: {comp_def.pin_names}).')
@@ -330,7 +330,7 @@ class Session:
             }
             if comp_def is not None:
                 entry['placement'] = ('module' if comp_def.is_module else
-                                      'pins' if comp_def.pin_count == 2 and not comp_def.is_dip
+                                      'pins' if comp_def.two_lead
                                       else 'anchor')
                 entry['pinouts'] = [n for n, _ in TO92_PINOUT_VARIANTS.get(type_id, [])]
                 if placed:

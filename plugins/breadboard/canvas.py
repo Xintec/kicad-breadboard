@@ -61,13 +61,6 @@ def _transparent_brush() -> 'wx.Brush':
 _TO92_BASE_TYPES = frozenset({'NPN', 'PNP', 'JFET_N', 'JFET_P', 'BS170', 'NMOS', 'PMOS'})
 
 
-def _is_single_row_type(type_id: str) -> bool:
-    """Pin headers (SIP<n>), XY308 terminal blocks and header-mounted modules
-    — see model/components.py _type_from_footprint."""
-    return (type_id == 'ADS1115_Module' or type_id.startswith('XY308_')
-            or (type_id.startswith('SIP') and type_id[3:].isdigit()))
-
-
 def _is_to92_type(type_id: str) -> bool:
     """True for TO-92-style 3-pin parts, including per-symbol pin-order
     variants dynamically registered by guess_type_id's _pin_order_type_id
@@ -1830,7 +1823,7 @@ class BreadboardCanvas(wx.Panel):
         if comp_def.is_module:
             return   # module ghost always follows mouse; no snap needed
         anchor = self.layout.nearest_hole(px, py)
-        if comp_def.pin_count == 2 and not comp_def.is_dip:
+        if comp_def.two_lead:
             self._ghost.anchor = anchor  # accept tie strip or power rail
         else:
             self._ghost.anchor = anchor if isinstance(anchor, TieHole) else None
@@ -1875,7 +1868,7 @@ class BreadboardCanvas(wx.Panel):
 
         # Two-pin non-DIP components use a two-step click flow.
         # They can land on any hole (tie strip OR power rail).
-        if comp_def.pin_count == 2 and not comp_def.is_dip:
+        if comp_def.two_lead:
             if self._place_pin1 is None:
                 # First click: lock pin 1, keep ghost active for pin 2
                 self._place_pin1 = clicked
@@ -2140,9 +2133,9 @@ class BreadboardCanvas(wx.Panel):
             # Rotate during placement, or rotate selected component.
             # 2-pin: only before pin1 is locked (flips the step-1 preview direction).
             if self._ghost is not None and (
-                    self._ghost.comp_def.pin_count != 2 or self._place_pin1 is None):
+                    not self._ghost.comp_def.two_lead or self._place_pin1 is None):
                 cd = self._ghost.comp_def
-                n_rots = 4 if (cd.is_module or (not cd.is_dip and cd.pin_count >= 3)) else 2
+                n_rots = 4 if (cd.is_module or cd.quad_rotates) else 2
                 self._ghost.flipped = (self._ghost.flipped + 1) % n_rots
                 self.Refresh()
             elif self._selected_ref is not None:
@@ -2597,7 +2590,7 @@ class BreadboardCanvas(wx.Panel):
         (px, py) — shared by the live drag preview (_on_motion) and the
         drop commit (_on_left_up) so both move the component the same way."""
         new_anchor = self.layout.nearest_hole(px, py)
-        if comp_def.pin_count == 2 and not comp_def.is_dip:
+        if comp_def.two_lead:
             # Preserve orientation (diagonal or rail-connected) by keeping the
             # pixel offset between the two pins and snapping pin2 to the nearest
             # hole at that translated position.  Works for TieHole, RailHole, or
@@ -2936,7 +2929,7 @@ class BreadboardCanvas(wx.Panel):
         if ref:
             placed = self.board.get_placement(ref)
             comp_def = ALL_DEFS.get(placed.type_id) if placed else None
-            if comp_def and (comp_def.is_dip or comp_def.is_module or comp_def.pin_count >= 3):
+            if comp_def and (comp_def.is_dip or comp_def.is_module or comp_def.quad_rotates):
                 self._flip_component(ref)
                 return
         # Otherwise cancel the current operation
@@ -2973,7 +2966,7 @@ class BreadboardCanvas(wx.Panel):
         if not isinstance(pin1, TieHole):
             return
 
-        if not comp_def.is_dip and comp_def.pin_count >= 3:
+        if comp_def.quad_rotates:
             # 90° CW steps, pivoting on pin 1 (which always resolves to the
             # anchor hole itself, at any rotation). If a step lands a pin
             # outside its row bank, skip it and keep cycling — never gets
@@ -3017,7 +3010,7 @@ class BreadboardCanvas(wx.Panel):
                                   key=PHYS_ROW.get)
                               if comp_def.row_span else 'e')
                 new_anchor = TieHole(new_col, anchor_row, pin1.section)
-        elif comp_def.pin_count == 2:
+        elif comp_def.two_lead:
             # For 2-pin axial: use pin2 as new anchor and toggle flipped.
             # place(pin2, flipped=True)  → pin1 at pin2.col, pin2 at pin2.col-span
             # place(pin2, flipped=False) → restores original orientation
@@ -3059,7 +3052,7 @@ class BreadboardCanvas(wx.Panel):
                 else:
                     # Pico, Nano, and Uno have pins close to their board edges
                     pad_x, pad_y = 10, 10
-            elif comp_def and comp_def.pin_count >= 3 and not comp_def.is_dip:
+            elif comp_def and comp_def.quad_rotates:
                 # TO-92 dome extends r_body=12px beyond the pin row
                 pad_x, pad_y = 6, 14
             else:
@@ -3081,7 +3074,7 @@ class BreadboardCanvas(wx.Panel):
             comp_def = ALL_DEFS.get(placed.type_id)
             if comp_def is None or comp_def.is_module or comp_def.is_dip:
                 continue
-            if comp_def.pin_count != 2:
+            if not comp_def.two_lead:
                 continue
             for pin_num, hole in placed.pin_holes.items():
                 xy = self.layout.hole_xy(hole)
@@ -4342,7 +4335,7 @@ class BreadboardCanvas(wx.Panel):
             else:
                 dc.DrawText(ref, cx - rw // 2, cy - rh // 2)
 
-        elif comp_def.pin_count == 2:
+        elif comp_def.two_lead:
             p1 = lay.hole_xy(placed.pin_holes[1])
             p2 = lay.hole_xy(placed.pin_holes[2])
             if p1 and p2:
@@ -4353,7 +4346,7 @@ class BreadboardCanvas(wx.Panel):
         else:
             # 3-pin and 4-pin components
             _SLIDER_TYPES = frozenset({'SPDT', 'SP3T'})
-            if _is_single_row_type(placed.type_id):
+            if comp_def.single_row:
                 self._draw_single_row_part(dc, comp_def, placed, ref, x_min, x_max,
                                            y_min, y_max, pad, selected)
                 return
@@ -6352,7 +6345,7 @@ class BreadboardCanvas(wx.Panel):
                                              flipped=ghost.flipped)
             return {pin: xy for (_ref, pin), xy in pins.items()}
 
-        if comp_def.pin_count == 2 and not comp_def.is_dip:
+        if comp_def.two_lead:
             # First-click pin number is fixed per type (see _commit_place).
             first_pin = 2 if comp_def.type_id in ('LED', 'D', 'D_Zener') else 1
             other_pin = 1 if first_pin == 2 else 2
@@ -6635,7 +6628,7 @@ class BreadboardCanvas(wx.Panel):
         # For diode-family (LED/D/D_Zener) first-click = anode (pin 2); the
         # ghost body is drawn with cathode at p1 side, so swap for those types.
         _diode_family = comp_def.type_id in ('LED', 'D', 'D_Zener')
-        if comp_def.pin_count == 2 and not comp_def.is_dip:
+        if comp_def.two_lead:
             if self._place_pin1 is not None:
                 # First click is locked; second click (cathode for diodes) follows mouse
                 p1_xy = lay.hole_xy(self._place_pin1)

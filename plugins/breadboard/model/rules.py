@@ -207,7 +207,7 @@ def covered_holes(layout: str, comp_def: ComponentDef, pin_holes: Dict[int, Hole
     cols = [h.col for h in ties]
     rows = [PHYS_ROW[h.row] for h in ties]
     before, after, low, high = comp_def.body
-    if comp_def.is_dip or comp_def.pin_count < 3:
+    if not comp_def.quad_rotates:
         turns = 2 if flipped else 0       # DIP-style parts: flipped = 180°
     else:
         turns = flipped % 4               # single-row parts: quad rotation

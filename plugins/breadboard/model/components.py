@@ -111,10 +111,26 @@ class ComponentDef:
     # across toward row j). The rows between a wide module's pin rows are
     # always covered. See rules.covered_holes.
     body: Tuple[int, int, int, int] = (0, 0, 0, 0)
+    # A single row of pins at fixed pitch (header, terminal block, header
+    # module): placed from an anchor and turned in 90° steps even with 2 pins.
+    single_row: bool = False
 
     @property
     def pin_count(self) -> int:
         return len(self.pin_offsets)
+
+    @property
+    def two_lead(self) -> bool:
+        """A two-lead part placed lead by lead into any two holes
+        (resistor, diode, capacitor…), not a two-pin strip."""
+        return self.pin_count == 2 and not self.is_dip and not self.single_row
+
+    @property
+    def quad_rotates(self) -> bool:
+        """Placed from an anchor and turned in 90° steps: single-bank parts
+        with 3+ pins (TO-92, sliders, POT) and single-row strips of any size."""
+        return (not self.is_dip and not self.is_module
+                and (self.pin_count >= 3 or self.single_row))
 
     def _resolve_wide(self, offset: PinOffset, anchor: TieHole, flipped: int) -> TieHole:
         """A pin of a wide module: the anchor row holds the cross_gap=False
@@ -143,7 +159,7 @@ class ComponentDef:
                     for pin, offset in self.pin_offsets.items()}
         if self.is_dip:
             anchor = TieHole(anchor.col, 'e', anchor.section)
-        quad = not self.is_dip and not self.is_module and self.pin_count >= 3
+        quad = self.quad_rotates
         return {pin: offset.resolve(anchor, flipped, cross_flip=self.is_dip, quad_rotate=quad)
                 for pin, offset in self.pin_offsets.items()}
 
@@ -156,7 +172,7 @@ class ComponentDef:
         actual placement still goes through the strict place()."""
         if self.is_dip and not self.row_span:
             anchor = TieHole(anchor.col, 'e', anchor.section)
-        quad = not self.is_dip and not self.is_module and self.pin_count >= 3
+        quad = self.quad_rotates
         result: Dict[int, Hole] = {}
         for pin, offset in self.pin_offsets.items():
             try:
@@ -887,6 +903,7 @@ def _make_sip(n: int, type_id: str = '', display_name: str = '',
         pin_names={i: str(i) for i in range(1, n + 1)},
         color=color,
         body=body,
+        single_row=True,
     )
 
 
