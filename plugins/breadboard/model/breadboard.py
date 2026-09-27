@@ -243,6 +243,9 @@ class Breadboard:
         self._probe_nets:    Dict[str, str]                  = {n: ''   for n in PROBE_NAMES}
         self._probe_offsets: Dict[str, Tuple[int, int]]      = {n: (0, 0) for n in PROBE_NAMES}
         self._module_positions: Dict[str, Tuple[int, int]]  = {}  # ref → (canvas_x, canvas_y)
+        # Schematic parts deliberately not mounted (e.g. an expansion header);
+        # the validator does not take their nodes for missing sources.
+        self.omitted: Set[str] = set()
 
     # ------------------------------------------------------------------
     # Static breadboard topology

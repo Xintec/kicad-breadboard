@@ -1632,6 +1632,7 @@ class BreadboardCanvas(wx.Panel):
         snap = self._board_snapshot(board)
         snap['annotations'] = annotations
         self._restore_snapshot(snap)
+        self.board.omitted = set(board.omitted)
         self._post_restore()
 
     def is_mid_action(self) -> bool:

@@ -127,6 +127,9 @@ def save_session(board: Breadboard, netlist_path: Optional[str], path: str,
             ref: list(pos) for ref, pos in board.module_positions.items()
         }
 
+    if board.omitted:
+        doc['omitted'] = sorted(board.omitted)
+
     if annotations:
         doc['annotations'] = annotations   # already JSON-serialisable dicts
 
@@ -167,6 +170,7 @@ def load_session(path: str) -> Dict[str, Any]:
 
     board_cfg = raw.get('board', {})
     board = Breadboard(layout=board_cfg.get('layout', 'full'))
+    board.omitted = set(raw.get('omitted', []))
 
     for name, net in raw.get('terminals', {}).items():
         if name in TERMINAL_NAMES and net:

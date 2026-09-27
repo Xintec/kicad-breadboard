@@ -14,6 +14,7 @@ Commands (holes as in headless.py: e10, e10@1, top_plus:3, GND, MCU1.5):
     place REF --at X,Y                    free-floating module (canvas px)
           [--led-color green] [--replace]
     remove REF
+    omit REF... / unomit REF...            parts deliberately not mounted
     wire A B [--color #rrggbb]  /  unwire A B
     terminal NAME NET                     assign a binding post ('' clears)
     check                                 schematic match + physical conflicts
@@ -79,6 +80,10 @@ def _parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser('remove')
     s.add_argument('ref')
+
+    for name in ('omit', 'unomit'):
+        s = sub.add_parser(name)
+        s.add_argument('refs', nargs='+')
 
     s = sub.add_parser('wire')
     s.add_argument('a')
@@ -205,6 +210,9 @@ def _run(args, session: Optional[Session]) -> tuple:
     if c == 'remove':
         s.remove(args.ref)
         return {'ok': True}, EXIT_OK, True
+    if c in ('omit', 'unomit'):
+        getattr(s, c)(args.refs)
+        return {'ok': True, 'omitted': sorted(s.board.omitted)}, EXIT_OK, True
     if c == 'wire':
         s.wire(args.a, args.b, args.color)
         return {'ok': True}, EXIT_OK, True

@@ -263,7 +263,7 @@ def validate(board: Breadboard, netlist: Netlist) -> ValidationResult:
     # Virtual components (simulation sources, power symbols) have no known
     # type_id and are handled via terminal assignments instead.
     for ref, comp in netlist.components.items():
-        if board.get_placement(ref) is None:
+        if board.get_placement(ref) is None and ref not in board.omitted:
             type_id = guess_type_id(ref, comp.value, comp.symbol, comp.lib, comp.description, comp.pin_count, comp.properties)
             if type_id is not None:
                 result.issues.append(ValidationIssue(
@@ -286,7 +286,11 @@ def validate(board: Breadboard, netlist: Netlist) -> ValidationResult:
     # Total schematic nodes per net (placed + unplaced); also track whether each net
     # has any power_in pins — used to detect supply nets where the second endpoint is
     # a SPICE source that isn't placed on the breadboard.
-    schematic_node_counts: Dict[str, int] = {net.name: len(net.pins) for net in netlist.nets}
+    # Nodes of parts declared omitted (board.omitted) are real parts left out,
+    # not virtual sources, so they do not count here.
+    schematic_node_counts: Dict[str, int] = {
+        net.name: sum(1 for p in net.pins if p.ref not in board.omitted)
+        for net in netlist.nets}
     power_in_nets: Set[str] = {
         net.name for net in netlist.nets
         if any(p.pintype == 'power_in' for p in net.pins)

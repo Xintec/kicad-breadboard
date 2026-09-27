@@ -264,6 +264,19 @@ class Session:
             self.board.set_module_position(ref, int(at[0]), int(at[1]))
         return placed
 
+    def omit(self, refs) -> None:
+        """Declare parts as not mounted on the breadboard (see Breadboard.omitted)."""
+        unknown = [r for r in refs if r not in self.netlist.components]
+        if unknown:
+            raise CliError(f'Not in the netlist: {", ".join(unknown)}.')
+        placed = [r for r in refs if self.board.get_placement(r)]
+        if placed:
+            raise CliError(f'Placed on the board: {", ".join(placed)}; remove them first.')
+        self.board.omitted.update(refs)
+
+    def unomit(self, refs) -> None:
+        self.board.omitted.difference_update(refs)
+
     def remove(self, ref: str) -> None:
         if self.board.remove(ref) is None:
             raise CliError(f'{ref} is not placed.')
@@ -334,6 +347,7 @@ class Session:
                       'num_terminals': self.prefs.num_terminals},
             'terminals_available': list(self.terminals),
             'terminals': {t: n for t, n in self.board.terminal_nets.items()},
+            'omitted': sorted(self.board.omitted),
             'components': comps,
             'wires': [{'from': format_hole(w.h1), 'to': format_hole(w.h2), 'color': w.color}
                       for w in self.board.wires],
