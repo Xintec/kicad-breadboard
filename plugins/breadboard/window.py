@@ -1166,17 +1166,23 @@ class BreadboardWindow(wx.Frame):
             path = dlg.GetPath()
 
         try:
-            if use_svg:
-                self.canvas.render_to_svg(path)
-            else:
-                bmp = self.canvas.render_to_bitmap()
-                if not bmp.SaveFile(path, wx.BITMAP_TYPE_PNG):
-                    raise RuntimeError('SaveFile returned False')
+            self._export_image_to(path)
         except Exception as exc:
             wx.MessageBox(f'Failed to save image to:\n{path}\n\n{exc}',
                           'Export image', wx.OK | wx.ICON_ERROR, self)
             return
         self.SetStatusText(f'Image saved to {path}', 0)
+
+    def _export_image_to(self, path: str) -> None:
+        """Write the board as SVG or PNG (by extension). The screen-space net
+        legend is left out: it is placed by window size and drawn
+        semi-transparent, which a plain bitmap turns into an empty white box."""
+        if path.lower().endswith('.svg'):
+            self.canvas.render_to_svg(path, include_net_labels=False)
+        else:
+            bmp = self.canvas.render_to_bitmap(include_net_labels=False)
+            if not bmp.SaveFile(path, wx.BITMAP_TYPE_PNG):
+                raise RuntimeError('SaveFile returned False')
 
     def _on_save(self, _evt) -> None:
         default_dir = self._project_path or ''

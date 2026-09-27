@@ -54,6 +54,23 @@ class WindowReloadTest(unittest.TestCase):
         st = os.stat(self.path)   # make sure the mtime moves even on coarse clocks
         os.utime(self.path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))
 
+    def test_image_export_leaves_out_the_screen_legend(self):
+        # the legend is placed by window size and drawn semi-transparent: in an
+        # exported bitmap it came out as an empty white box in a corner
+        from breadboard.canvas import BreadboardCanvas
+
+        def boom(canvas, dc):
+            raise AssertionError('net legend drawn')
+        orig = BreadboardCanvas._draw_net_labels
+        BreadboardCanvas._draw_net_labels = boom
+        try:
+            for ext in ('png', 'svg'):
+                out = os.path.join(self.dir, 'board.' + ext)
+                self.win._export_image_to(out)
+                self.assertTrue(os.path.getsize(out) > 0)
+        finally:
+            BreadboardCanvas._draw_net_labels = orig
+
     def test_relative_netlist_path_resolves_against_the_session(self):
         # setUp's session names its netlist relative to itself ('demo.net')
         self.assertIsNotNone(self.win.netlist)
