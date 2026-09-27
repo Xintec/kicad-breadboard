@@ -39,5 +39,35 @@ class CanvasRulesTest(unittest.TestCase):
         self.assertFalse(canvas._pin_holes_valid(past))
 
 
+class RenderTest(unittest.TestCase):
+    """cli.py render must leave out the screen-space net legend: it is placed
+    by window size and drawn semi-transparent, which a plain bitmap renders
+    as an opaque white box."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = wx.App(False)
+
+    def test_render_omits_the_screen_space_legend(self):
+        import tempfile
+        from breadboard import cli
+        from breadboard.headless import Session
+        from breadboard.prefs import Preferences
+
+        tmp = tempfile.mkdtemp()
+        s = Session.create(os.path.join(tmp, 'd.kicad_bbrd'),
+                           os.path.join(HERE, 'fixtures', 'demo.net'), prefs=Preferences())
+        s.place('U1', anchor='e20')      # its NC pins are single-endpoint nets → legend rows
+
+        def boom(self, dc):
+            raise AssertionError('net legend drawn')
+        orig = BreadboardCanvas._draw_net_labels
+        BreadboardCanvas._draw_net_labels = boom
+        try:
+            cli._render(s, os.path.join(tmp, 'b.png'), with_check=True)
+        finally:
+            BreadboardCanvas._draw_net_labels = orig
+
+
 if __name__ == '__main__':
     unittest.main()

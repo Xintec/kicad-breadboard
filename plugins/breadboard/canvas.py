@@ -3191,24 +3191,26 @@ class BreadboardCanvas(wx.Panel):
     # Painting
     # ------------------------------------------------------------------
 
-    def render_to_bitmap(self) -> 'wx.Bitmap':
-        """Render the full board to an off-screen bitmap (for PNG export)."""
+    def render_to_bitmap(self, include_net_labels: bool = True) -> 'wx.Bitmap':
+        """Render the full board to an off-screen bitmap (for PNG export).
+        include_net_labels=False leaves out the screen-space net legend, which
+        is placed by window size — meaningless without a visible window."""
         w = self.layout.total_width()
         h = self.layout.total_height
         bmp = wx.Bitmap(w, h)
         mdc = wx.MemoryDC(bmp)
         mdc.SetBackground(wx.Brush(wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)))
         mdc.Clear()
-        self._draw_board(mdc)
+        self._draw_board(mdc, include_net_labels=include_net_labels)
         mdc.SelectObject(wx.NullBitmap)
         return bmp
 
-    def render_to_svg(self, path: str) -> None:
-        """Render the full board to an SVG file."""
+    def render_to_svg(self, path: str, include_net_labels: bool = True) -> None:
+        """Render the full board to an SVG file (see render_to_bitmap)."""
         w = self.layout.total_width()
         h = self.layout.total_height
         svg_dc = wx.SVGFileDC(path, w, h)
-        self._draw_board(svg_dc)
+        self._draw_board(svg_dc, include_net_labels=include_net_labels)
         del svg_dc   # flushes and closes the file
 
     def _on_paint(self, _evt) -> None:
