@@ -16,7 +16,8 @@ Commands (holes as in headless.py: e10, e10@1, top_plus:3, GND, MCU1.5; and
           [--led-color green] [--replace]
     remove REF
     omit REF... / unomit REF...            parts deliberately not mounted
-    wire A B [--color #rrggbb]  /  unwire A B
+    wire A B [--color #rrggbb] [--bend h|v | --via HOLE]  /  unwire A B
+    bend A B h|v|none|HOLE                 re-bend a wire (h: along first, v: across first)
     terminal NAME NET                     assign a binding post ('' clears)
     check                                 schematic match + physical conflicts
     simulate [V1=5 V2=-5]                 DC operating point (ngspice)
@@ -92,6 +93,13 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument('a')
     s.add_argument('b')
     s.add_argument('--color')
+    s.add_argument('--bend', choices=('h', 'v'))
+    s.add_argument('--via')
+
+    s = sub.add_parser('bend')
+    s.add_argument('a')
+    s.add_argument('b')
+    s.add_argument('how')
 
     s = sub.add_parser('unwire')
     s.add_argument('a')
@@ -218,8 +226,11 @@ def _run(args, session: Optional[Session]) -> tuple:
         return {'ok': True, 'omitted': sorted(s.board.omitted)}, EXIT_OK, True
     if c == 'wire':
         from .headless import format_hole
-        w = s.wire(args.a, args.b, args.color)
+        w = s.wire(args.a, args.b, args.color, bend=args.bend, via=args.via)
         return {'ok': True, 'wire': [format_hole(w.h1), format_hole(w.h2)]}, EXIT_OK, True
+    if c == 'bend':
+        s.bend(args.a, args.b, args.how)
+        return {'ok': True}, EXIT_OK, True
     if c == 'unwire':
         s.unwire(args.a, args.b)
         return {'ok': True}, EXIT_OK, True

@@ -304,7 +304,47 @@ class Session:
         if self.board.remove(ref) is None:
             raise CliError(f'{ref} is not placed.')
 
-    def wire(self, a, b, color: Optional[str] = None):
+    def _bend_point(self, h1: Hole, h2: Hole, how: Optional[str] = None,
+                    via=None) -> Optional[Tuple[int, int]]:
+        """The canvas point a wire h1→h2 bends at (Wire.mid_point): 'h' runs
+        along the board first, then across; 'v' across first; via: that
+        hole's centre. None: straight. Uses the canvas geometry (needs wx)."""
+        if via is None and how in (None, 'none'):
+            return None
+        from .canvas import CanvasLayout
+        p = self.prefs
+        lay = CanvasLayout(self.board.layout, p.binding_post_side, p.show_branding,
+                           self.board.rail_split, p.num_terminals)
+        xy1, xy2 = lay.hole_xy(h1), lay.hole_xy(h2)
+        if xy1 is None or xy2 is None:
+            raise CliError('Only wires between board holes and binding posts can be bent.')
+        if via is not None:
+            mid = lay.hole_xy(self._resolve(via))
+            if mid is None:
+                raise CliError(f'{via} is not a hole on this board.')
+        elif how == 'h':
+            mid = (xy2[0], xy1[1])
+        elif how == 'v':
+            mid = (xy1[0], xy2[1])
+        else:
+            raise CliError(f'Bend with h, v, none or a hole, not {how!r}.')
+        if mid in (xy1, xy2):
+            return None             # already straight along that axis
+        return int(mid[0]), int(mid[1])
+
+    def bend(self, a, b, how: str) -> None:
+        """Re-bend an existing wire: h, v, none, or a hole to pass through.
+        h/v are taken from the end the wire was drawn from."""
+        w = self.board.wire_at(_as_hole(a), _as_hole(b))
+        if w is None:
+            raise CliError(f'No wire between {a} and {b}.')
+        if how in ('h', 'v', 'none'):
+            w.mid_point = self._bend_point(w.h1, w.h2, how)
+        else:
+            w.mid_point = self._bend_point(w.h1, w.h2, via=how)
+
+    def wire(self, a, b, color: Optional[str] = None, bend: Optional[str] = None,
+             via=None):
         h1 = self._resolve(a)
         h2 = self._resolve(b, taken=(h1,))
         if h1 == h2:
@@ -315,7 +355,10 @@ class Session:
             if isinstance(h, ModulePin) and not rules.hole_exists(self.board, h):
                 raise CliError(f'{format_hole(h)}: no such module pin is placed.')
         self._require_free([h for h in (h1, h2) if not isinstance(h, ModulePin)])
-        return self.board.add_wire(h1, h2, color or DEFAULT_WIRE_COLOR)
+        mid = self._bend_point(h1, h2, bend, via)
+        w = self.board.add_wire(h1, h2, color or DEFAULT_WIRE_COLOR)
+        w.mid_point = mid
+        return w
 
     def unwire(self, a, b) -> None:
         w = self.board.wire_at(_as_hole(a), _as_hole(b))
