@@ -99,6 +99,7 @@ from .model import (
     RPi_PIN_NAMES_LONG,
     ARDUINO_UNO_FN_NAMES,
 )
+from .model import rules
 
 # ---------------------------------------------------------------------------
 # Layout constants (pixels)
@@ -378,8 +379,7 @@ class CanvasLayout:
         self.columns  = _col_map.get(board_layout, COLUMNS)
         self.sections = {'half': 1, 'full': 1, 'double': 2, 'triple': 3, 'double_rails': 2}.get(board_layout, 1)
         self.has_rails = board_layout not in RAILLESS_LAYOUTS
-        _rail_len_map = {'half': 24}   # 24 holes/rail: cols 2–29, 1-col padding each end
-        self.rail_len  = _rail_len_map.get(board_layout, min(RAIL_LEN, self.columns)) if self.has_rails else 0
+        self.rail_len  = rules.rail_len(board_layout)
 
         # --- Relative y layout for one section (relative to section top = 0) ---
         self._row_rel: Dict[str, int] = {}
@@ -453,9 +453,7 @@ class CanvasLayout:
             term_cx = board_right + TERM_R + _POST_BOARD_GAP
 
         # --- Binding post positions ---
-        _large_board = board_layout in ('double', 'triple', 'double_rails')
-        _max_terms = 4 if (not _is_horiz or _large_board) else 3
-        _active_terminals = TERMINAL_NAMES[:max(2, min(num_terminals, _max_terms))]
+        _active_terminals = rules.active_terminals(board_layout, binding_post_side, num_terminals)
         n = len(_active_terminals)
         if _is_horiz:
             v_margin = int(self.total_height * 0.18)
@@ -2546,81 +2544,27 @@ class BreadboardCanvas(wx.Panel):
             dlg.Destroy()
         self.Refresh()
 
-    # Sunny-11's upper blocks (sections 0/1) have three straddleable gutters
-    # instead of every other layout's one: each block's own internal gap,
-    # plus the gap between the two blocks. (row, section) pairs here are
-    # what a cross_gap=False / cross_gap=True pin lands on for that gutter.
-    _SUNNY11_GUTTERS = (
-        (('e', 0), ('f', 0)),   # left block's own internal gap
-        (('j', 0), ('a', 1)),   # between the two upper blocks
-        (('e', 1), ('f', 1)),   # right block's own internal gap
-    )
-
-    @staticmethod
-    def _sunny11_chain_pos(row: str, section: int) -> float:
-        """Position of (row, section) along the 20-row chain formed by
-        treating the two upper blocks as one strip: 0-4/5-9 = block 0's
-        top/bottom banks, 10-14/15-19 = block 1's."""
-        if row in TOP_ROWS:
-            return section * 10 + TOP_ROWS.index(row)
-        return section * 10 + 5 + BOT_ROWS.index(row)
+    # Sunny-11's three straddleable gutters and the DIP placement across them
+    # live in model/rules.py, shared with the headless CLI.
+    _SUNNY11_GUTTERS = rules.SUNNY11_GUTTERS
 
     def _sunny11_gutter_index(self, row: str, section: int) -> int:
-        """Which of the three gutters (see _SUNNY11_GUTTERS) is nearest
-        (row, section) along the chain."""
-        pos = self._sunny11_chain_pos(row, section)
-        boundaries = (4.5, 9.5, 14.5)
-        return min(range(3), key=lambda i: abs(pos - boundaries[i]))
-
-    def _sunny11_place_dip(self, anchor: TieHole, flipped, comp_def: ComponentDef,
-                            lenient: bool = False) -> Dict[int, Hole]:
-        """Cross-gap pin placement for a DIP anchored on sunny-11's upper
-        blocks: straddle whichever of the three gutters is nearest the
-        clicked hole, instead of always forcing row 'e' (which can only
-        ever reach one of the two blocks' own internal gaps).
-
-        The row->x / col->y axis swap in _init_sunny11 (portrait blocks) is a
-        transpose of the normal board's col->x / row->y mapping, and a plain
-        transpose is a mirror image, not a 90° rotation — reusing col_delta's
-        sign unchanged here would reflect the pin order instead of rotating
-        it, so col_delta is negated relative to comp_def.place()'s formula
-        to restore proper rotation and correct pin-1 placement."""
-        false_side, true_side = self._SUNNY11_GUTTERS[
-            self._sunny11_gutter_index(anchor.row, anchor.section)]
-        result: Dict[int, Hole] = {}
-        for pin, offset in comp_def.pin_offsets.items():
-            cross = (not offset.cross_gap) if flipped else offset.cross_gap
-            row, section = true_side if cross else false_side
-            col = anchor.col + (offset.col_delta if flipped else -offset.col_delta)
-            try:
-                result[pin] = TieHole(col, row, section)
-            except AssertionError:
-                if lenient:
-                    continue
-                raise
-        return result
+        return rules.sunny11_gutter_index(row, section)
 
     def _resolve_pin_holes(self, comp_def: ComponentDef, anchor: TieHole, flipped,
                             lenient: bool = False) -> Dict[int, Hole]:
-        """comp_def.place()/place_lenient(), routed through sunny-11's
-        multi-gutter DIP logic (_sunny11_place_dip) when applicable."""
-        if (comp_def.is_dip and self.layout.board_layout == 'sunny-11'
-                and anchor.section in (0, 1)):
-            return self._sunny11_place_dip(anchor, flipped, comp_def, lenient=lenient)
-        return comp_def.place_lenient(anchor, flipped=flipped) if lenient \
-            else comp_def.place(anchor, flipped=flipped)
+        return rules.resolve_pin_holes(self.layout.board_layout, comp_def, anchor,
+                                       flipped, lenient=lenient)
 
     def _pin_holes_valid(self, pin_holes) -> bool:
-        """True only if every pin resolves to a renderable position. Neither
+        """True only if every pin lands on a hole that exists on this board
+        (rules.hole_exists) and resolves to a renderable position. Neither
         TieHole nor place() reject a column past the end of the grid (only
-        col < 1 raises), so an anchor near the edge can silently produce
-        pins that fall off the board — hole_xy returns None for those, and
-        without this check the component would render with some pins
-        (and their legs) just missing instead of the placement being
-        rejected. Most visible on sunny-11's narrow 28-column blocks, where
-        dragging a DIP toward the end is easy to hit; harmless on wider
-        boards where it rarely comes up, but not layout-specific."""
-        return all(self.layout.hole_xy(h) is not None for h in pin_holes.values())
+        col < 1 raises), and on the standard layouts hole_xy() does not
+        either, so the existence check is what rejects a DIP dragged off
+        the right-hand edge."""
+        return all(rules.hole_exists(self.board, h) and self.layout.hole_xy(h) is not None
+                   for h in pin_holes.values())
 
     def _reposition_dragged_component(self, p: PlacedComponent, comp_def: ComponentDef,
                                        px: int, py: int) -> None:
@@ -3029,7 +2973,7 @@ class BreadboardCanvas(wx.Panel):
             is_sunny11_upper = (self.layout.board_layout == 'sunny-11'
                                  and pin1.section in (0, 1))
             if is_sunny11_upper:
-                # _sunny11_place_dip negates col_delta's sign relative to
+                # rules.sunny11_place_dip negates col_delta's sign relative to
                 # comp_def.place() (see its docstring), so the anchor offset
                 # that keeps the footprint in place across a flip is also
                 # negated here — otherwise the IC jumps to a different span

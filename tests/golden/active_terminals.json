@@ -1,0 +1,1222 @@
+{
+"double_rails|bottom_center|2": [
+"GND",
+"V1"
+],
+"double_rails|bottom_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"double_rails|bottom_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|bottom_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|bottom_left|2": [
+"GND",
+"V1"
+],
+"double_rails|bottom_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"double_rails|bottom_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|bottom_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|bottom_right|2": [
+"GND",
+"V1"
+],
+"double_rails|bottom_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"double_rails|bottom_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|bottom_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|left|2": [
+"GND",
+"V1"
+],
+"double_rails|left|3": [
+"GND",
+"V1",
+"V2"
+],
+"double_rails|left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|right|2": [
+"GND",
+"V1"
+],
+"double_rails|right|3": [
+"GND",
+"V1",
+"V2"
+],
+"double_rails|right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|top_center|2": [
+"GND",
+"V1"
+],
+"double_rails|top_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"double_rails|top_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|top_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|top_left|2": [
+"GND",
+"V1"
+],
+"double_rails|top_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"double_rails|top_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|top_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|top_right|2": [
+"GND",
+"V1"
+],
+"double_rails|top_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"double_rails|top_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double_rails|top_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|bottom_center|2": [
+"GND",
+"V1"
+],
+"double|bottom_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"double|bottom_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|bottom_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|bottom_left|2": [
+"GND",
+"V1"
+],
+"double|bottom_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"double|bottom_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|bottom_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|bottom_right|2": [
+"GND",
+"V1"
+],
+"double|bottom_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"double|bottom_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|bottom_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|left|2": [
+"GND",
+"V1"
+],
+"double|left|3": [
+"GND",
+"V1",
+"V2"
+],
+"double|left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|right|2": [
+"GND",
+"V1"
+],
+"double|right|3": [
+"GND",
+"V1",
+"V2"
+],
+"double|right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|top_center|2": [
+"GND",
+"V1"
+],
+"double|top_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"double|top_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|top_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|top_left|2": [
+"GND",
+"V1"
+],
+"double|top_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"double|top_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|top_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|top_right|2": [
+"GND",
+"V1"
+],
+"double|top_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"double|top_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"double|top_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|bottom_center|2": [
+"GND",
+"V1"
+],
+"full|bottom_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"full|bottom_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|bottom_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|bottom_left|2": [
+"GND",
+"V1"
+],
+"full|bottom_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"full|bottom_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|bottom_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|bottom_right|2": [
+"GND",
+"V1"
+],
+"full|bottom_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"full|bottom_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|bottom_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|left|2": [
+"GND",
+"V1"
+],
+"full|left|3": [
+"GND",
+"V1",
+"V2"
+],
+"full|left|4": [
+"GND",
+"V1",
+"V2"
+],
+"full|left|5": [
+"GND",
+"V1",
+"V2"
+],
+"full|right|2": [
+"GND",
+"V1"
+],
+"full|right|3": [
+"GND",
+"V1",
+"V2"
+],
+"full|right|4": [
+"GND",
+"V1",
+"V2"
+],
+"full|right|5": [
+"GND",
+"V1",
+"V2"
+],
+"full|top_center|2": [
+"GND",
+"V1"
+],
+"full|top_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"full|top_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|top_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|top_left|2": [
+"GND",
+"V1"
+],
+"full|top_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"full|top_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|top_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|top_right|2": [
+"GND",
+"V1"
+],
+"full|top_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"full|top_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"full|top_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|bottom_center|2": [
+"GND",
+"V1"
+],
+"half|bottom_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"half|bottom_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|bottom_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|bottom_left|2": [
+"GND",
+"V1"
+],
+"half|bottom_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"half|bottom_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|bottom_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|bottom_right|2": [
+"GND",
+"V1"
+],
+"half|bottom_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"half|bottom_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|bottom_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|left|2": [
+"GND",
+"V1"
+],
+"half|left|3": [
+"GND",
+"V1",
+"V2"
+],
+"half|left|4": [
+"GND",
+"V1",
+"V2"
+],
+"half|left|5": [
+"GND",
+"V1",
+"V2"
+],
+"half|right|2": [
+"GND",
+"V1"
+],
+"half|right|3": [
+"GND",
+"V1",
+"V2"
+],
+"half|right|4": [
+"GND",
+"V1",
+"V2"
+],
+"half|right|5": [
+"GND",
+"V1",
+"V2"
+],
+"half|top_center|2": [
+"GND",
+"V1"
+],
+"half|top_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"half|top_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|top_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|top_left|2": [
+"GND",
+"V1"
+],
+"half|top_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"half|top_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|top_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|top_right|2": [
+"GND",
+"V1"
+],
+"half|top_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"half|top_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"half|top_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|bottom_center|2": [
+"GND",
+"V1"
+],
+"mini|bottom_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"mini|bottom_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|bottom_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|bottom_left|2": [
+"GND",
+"V1"
+],
+"mini|bottom_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"mini|bottom_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|bottom_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|bottom_right|2": [
+"GND",
+"V1"
+],
+"mini|bottom_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"mini|bottom_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|bottom_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|left|2": [
+"GND",
+"V1"
+],
+"mini|left|3": [
+"GND",
+"V1",
+"V2"
+],
+"mini|left|4": [
+"GND",
+"V1",
+"V2"
+],
+"mini|left|5": [
+"GND",
+"V1",
+"V2"
+],
+"mini|right|2": [
+"GND",
+"V1"
+],
+"mini|right|3": [
+"GND",
+"V1",
+"V2"
+],
+"mini|right|4": [
+"GND",
+"V1",
+"V2"
+],
+"mini|right|5": [
+"GND",
+"V1",
+"V2"
+],
+"mini|top_center|2": [
+"GND",
+"V1"
+],
+"mini|top_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"mini|top_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|top_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|top_left|2": [
+"GND",
+"V1"
+],
+"mini|top_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"mini|top_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|top_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|top_right|2": [
+"GND",
+"V1"
+],
+"mini|top_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"mini|top_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"mini|top_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"sunny-11|bottom_center|2": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_center|3": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_center|4": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_center|5": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_left|2": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_left|3": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_left|4": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_left|5": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_right|2": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_right|3": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_right|4": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|bottom_right|5": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|left|2": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|left|3": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|left|4": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|left|5": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|right|2": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|right|3": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|right|4": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|right|5": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_center|2": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_center|3": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_center|4": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_center|5": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_left|2": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_left|3": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_left|4": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_left|5": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_right|2": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_right|3": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_right|4": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"sunny-11|top_right|5": [
+"GND",
+"V1",
+"V2",
+"V3",
+"V4"
+],
+"triple|bottom_center|2": [
+"GND",
+"V1"
+],
+"triple|bottom_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"triple|bottom_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|bottom_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|bottom_left|2": [
+"GND",
+"V1"
+],
+"triple|bottom_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"triple|bottom_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|bottom_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|bottom_right|2": [
+"GND",
+"V1"
+],
+"triple|bottom_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"triple|bottom_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|bottom_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|left|2": [
+"GND",
+"V1"
+],
+"triple|left|3": [
+"GND",
+"V1",
+"V2"
+],
+"triple|left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|right|2": [
+"GND",
+"V1"
+],
+"triple|right|3": [
+"GND",
+"V1",
+"V2"
+],
+"triple|right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|top_center|2": [
+"GND",
+"V1"
+],
+"triple|top_center|3": [
+"GND",
+"V1",
+"V2"
+],
+"triple|top_center|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|top_center|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|top_left|2": [
+"GND",
+"V1"
+],
+"triple|top_left|3": [
+"GND",
+"V1",
+"V2"
+],
+"triple|top_left|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|top_left|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|top_right|2": [
+"GND",
+"V1"
+],
+"triple|top_right|3": [
+"GND",
+"V1",
+"V2"
+],
+"triple|top_right|4": [
+"GND",
+"V1",
+"V2",
+"V3"
+],
+"triple|top_right|5": [
+"GND",
+"V1",
+"V2",
+"V3"
+]
+}
